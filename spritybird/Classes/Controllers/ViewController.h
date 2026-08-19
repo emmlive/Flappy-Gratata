@@ -7,13 +7,11 @@
 //
 
 #import "Scene.h"
-#import "Chartboost.h"
-#import <Social/Social.h>
 #import "AppSpecificValues.h"
 #import "GameCenterManager.h"
 #import <GameKit/GameKit.h>
 
-@interface ViewController : UIViewController<SceneDelegate,ChartboostDelegate,GameCenterManagerDelegate,GKLeaderboardViewControllerDelegate,GKAchievementViewControllerDelegate>
+@interface ViewController : UIViewController<SceneDelegate,GameCenterManagerDelegate,GKLeaderboardViewControllerDelegate,GKAchievementViewControllerDelegate>
 {
     int playerScore;
 }

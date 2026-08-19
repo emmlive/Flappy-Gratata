@@ -36,12 +36,6 @@
 
 - (void)applicationDidBecomeActive:(UIApplication *)application
 {
-    Chartboost *cb = [Chartboost sharedChartboost];
-    cb.appId = @"533837319ddc3525dd944384";
-    cb.appSignature = @"6f82abe89f5497425befbe40a6555df0c8518ce9";
-    cb.delegate = self;
-    [cb startSession];
-    [cb cacheInterstitial];
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application

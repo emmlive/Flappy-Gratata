@@ -7,13 +7,9 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "iRate.h"
-#import "Chartboost.h"
-#import <CommonCrypto/CommonDigest.h>
-#import <AdSupport/AdSupport.h>
 
 
-@interface AppDelegate : UIResponder <UIApplicationDelegate,ChartboostDelegate>
+@interface AppDelegate : UIResponder <UIApplicationDelegate>
 {
     
 }

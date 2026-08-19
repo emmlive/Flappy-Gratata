@@ -11,7 +11,6 @@
 #import "Scene.h"
 #import "Score.h"
 #import "SVProgressHUD.h"
-#import <iAd/iAd.h>
 
 @interface ViewController ()
 @property (weak,nonatomic) IBOutlet SKView * gameView;
@@ -91,9 +90,6 @@
 
     }];
     
-    if (wasted) {
-        [self showRate];
-    }
     
 }
 
@@ -149,7 +145,6 @@
         
     } completion:^(BOOL finished) {
         flash.userInteractionEnabled = NO;
-       //  [[Chartboost sharedChartboost] showInterstitial];
         //showMoreApps
         if ([GameCenterManager isGameCenterAvailable])
         {
@@ -173,37 +168,17 @@
     [[self.view layer] addAnimation:animation forKey:@"position"];
 }
 
-#pragma mark - Rate
-
--(void)showRate{
-    //configure iRate
-    [iRate sharedInstance].applicationBundleID = @"com.mathiasnilles.FlappyGratata";
-    [iRate sharedInstance].onlyPromptIfLatestVersion = NO;
-    [iRate sharedInstance].appStoreID = 860308945;
-    [iRate sharedInstance].applicationName = @"Flappy Gratata";
-    
-    [[iRate sharedInstance] setPromptAtLaunch:NO];
-    [[iRate sharedInstance] setRateButtonLabel:@"• RATE NOW •"];
-    [[iRate sharedInstance] setRemindButtonLabel:@"Remind me later"];
-    [[iRate sharedInstance] setCancelButtonLabel:@"Cancel"];
-    [[iRate sharedInstance] setMessageTitle:@"Rate Flappy Gratata"];
-    [[iRate sharedInstance] setMessage:@"If you like this, please rate and share with your friends. "];
-    [iRate sharedInstance].previewMode = YES ;
-    [iRate sharedInstance].daysUntilPrompt = 0;
-    [iRate sharedInstance].usesUntilPrompt = 1;
-    [iRate sharedInstance].remindPeriod = 1;
-    
-}
-
 #pragma mark - Twitter - GameCenter
 
 - (IBAction)twitterFunc:(id)sender {
-    SLComposeViewController *TwitterVC = [SLComposeViewController composeViewControllerForServiceType:SLServiceTypeTwitter];
-    
-    [TwitterVC setInitialText:@"Gratata! I'm playing Flappy Gratata and it is awesome."];
-    [TwitterVC addURL:[NSURL URLWithString:@"https://itunes.apple.com/us/app/flappy-gratata/id889669478?mt=8"]];
-    [TwitterVC addImage:[UIImage imageNamed:@""]];
-    [self presentViewController:TwitterVC animated:YES completion:nil];
+    NSString *message = @"Gratata! I'm playing Flappy Gratata and it is awesome.";
+    UIActivityViewController *shareController =
+        [[UIActivityViewController alloc] initWithActivityItems:@[message]
+                                         applicationActivities:nil];
+
+    [self presentViewController:shareController
+                       animated:YES
+                     completion:nil];
 }
 
 - (IBAction)gameCenterFunc:(id)sender {
@@ -228,13 +203,6 @@
 }
 
 
-- (void)viewDidAppear:(BOOL)animated
-{
-    [super viewDidAppear:animated];
-    
-    ADBannerView *adView = [[ADBannerView alloc] initWithFrame:CGRectMake(0, self.view.frame.size.height - 50, 320, 50)];
-    [self.view addSubview:adView];
-}
 
 @end
 
