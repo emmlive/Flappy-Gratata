@@ -30,23 +30,6 @@ static appController *sharedappController = nil;
 {
   
 }
-#pragma mark - Device Check
-
--(BOOL)isiPhone5{
-    NSLog(@"ScreenWidth = %f . ScreenHeight = %f",[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
-
-    if([UIScreen mainScreen].bounds.size.height ==480.0){
-        return NO;
-    }
-    else
-        return YES;
-}
--(BOOL)isiPad{
-    if([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad )
-        return YES;
-    else
-        return NO;
-}
 -(void)playJumpSound{
     SystemSoundID soundID;
     NSURL *url = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%@/JumpSound.mp3", [[NSBundle mainBundle] resourcePath]]];

@@ -593,7 +593,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";
@@ -613,7 +612,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";

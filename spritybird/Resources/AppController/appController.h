@@ -14,8 +14,6 @@
 +(appController *)sharedappController;
 
 - (void)initializeBackgroundMusic;
--(BOOL)isiPad;
--(BOOL)isiPhone5;
 -(void)playJumpSound;
 -(void)playPointSound;
 -(void)playGameOverSound;
