@@ -10,7 +10,6 @@
 #import "ViewController.h"
 #import "Scene.h"
 #import "Score.h"
-#import "SVProgressHUD.h"
 
 @interface ViewController ()
 @property (weak,nonatomic) IBOutlet SKView * gameView;
@@ -35,7 +34,6 @@
 
 {
     [super viewDidLoad];
-    [[UIApplication sharedApplication] setStatusBarHidden:YES withAnimation:UIStatusBarAnimationSlide];
     
 	// Configure the view.
     //self.gameView.showsFPS = YES;

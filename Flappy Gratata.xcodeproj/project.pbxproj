@@ -7,9 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		183BC8101909702700F40F40 /* Accounts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 183BC80F1909702700F40F40 /* Accounts.framework */; };
-		184AAF58190EB9C300D36910 /* SVProgressHUD.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 184AAF55190EB9C300D36910 /* SVProgressHUD.bundle */; };
-		184AAF59190EB9C300D36910 /* SVProgressHUD.m in Sources */ = {isa = PBXBuildFile; fileRef = 184AAF57190EB9C300D36910 /* SVProgressHUD.m */; };
 		18AD6FA319018AA800FD6B65 /* GameCenterManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 18AD6FA219018AA800FD6B65 /* GameCenterManager.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		576A22CE18B9CB8E001338C0 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 82C6A0A418A6F53400FEBE9B /* Main.storyboard */; };
 		821A755618AD616C00B376D5 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A218A6F53400FEBE9B /* AppDelegate.m */; };
@@ -46,14 +43,8 @@
 		82C6A0BE18A6F53400FEBE9B /* spritybirdTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0BD18A6F53400FEBE9B /* spritybirdTests.m */; };
 		82C6A0CB18A6FF7400FEBE9B /* SpriteKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 82C6A0CA18A6FF7400FEBE9B /* SpriteKit.framework */; };
 		82FEEB9418B550BF00AA6C66 /* Main-iPad.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 82FEEB9318B550BF00AA6C66 /* Main-iPad.storyboard */; };
-		C979843B196EDC3E008D0980 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C979843A196EDC3E008D0980 /* CoreTelephony.framework */; };
-		C979843D196EDC49008D0980 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C979843C196EDC49008D0980 /* AVFoundation.framework */; };
-		C979843F196EDC78008D0980 /* MessageUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C979843E196EDC78008D0980 /* MessageUI.framework */; };
 		CE4D182518EBB00E00A16507 /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE4D182418EBB00E00A16507 /* GameKit.framework */; };
 		CE4D182918EBB28300A16507 /* GCHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = CE4D182818EBB28300A16507 /* GCHelper.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
-		CE5B75F918E88AB100B2D737 /* AdSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE5B75F818E88AB100B2D737 /* AdSupport.framework */; };
-		CE5B75FB18E88AB900B2D737 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE5B75FA18E88AB900B2D737 /* StoreKit.framework */; };
-		CE5B75FD18E88AC400B2D737 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE5B75FC18E88AC400B2D737 /* SystemConfiguration.framework */; };
 		CE5B75FF18E88ACB00B2D737 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE5B75FE18E88ACB00B2D737 /* QuartzCore.framework */; };
 		CEBA899D18EBA7CC009B4979 /* game_over@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CEBA899C18EBA7CC009B4979 /* game_over@2x.png */; };
 		CEBA89A418EBA8FC009B4979 /* twitteriCon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CEBA89A218EBA8FC009B4979 /* twitteriCon@2x.png */; };
@@ -76,10 +67,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		183BC80F1909702700F40F40 /* Accounts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accounts.framework; path = System/Library/Frameworks/Accounts.framework; sourceTree = SDKROOT; };
-		184AAF55190EB9C300D36910 /* SVProgressHUD.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = SVProgressHUD.bundle; sourceTree = "<group>"; };
-		184AAF56190EB9C300D36910 /* SVProgressHUD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SVProgressHUD.h; sourceTree = "<group>"; };
-		184AAF57190EB9C300D36910 /* SVProgressHUD.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SVProgressHUD.m; sourceTree = "<group>"; };
 		18AD6FA019018AA800FD6B65 /* AppSpecificValues.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppSpecificValues.h; sourceTree = "<group>"; };
 		18AD6FA119018AA800FD6B65 /* GameCenterManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GameCenterManager.h; sourceTree = "<group>"; };
 		18AD6FA219018AA800FD6B65 /* GameCenterManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GameCenterManager.m; sourceTree = "<group>"; };
@@ -131,15 +118,9 @@
 		82C6A0E018A79B2400FEBE9B /* Macros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Macros.h; sourceTree = "<group>"; };
 		82C6A0E118A79B2400FEBE9B /* Constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Constants.h; sourceTree = "<group>"; };
 		82FEEB9318B550BF00AA6C66 /* Main-iPad.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = "Main-iPad.storyboard"; sourceTree = "<group>"; };
-		C979843A196EDC3E008D0980 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
-		C979843C196EDC49008D0980 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
-		C979843E196EDC78008D0980 /* MessageUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MessageUI.framework; path = System/Library/Frameworks/MessageUI.framework; sourceTree = SDKROOT; };
 		CE4D182418EBB00E00A16507 /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = System/Library/Frameworks/GameKit.framework; sourceTree = SDKROOT; };
 		CE4D182718EBB28300A16507 /* GCHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GCHelper.h; sourceTree = "<group>"; };
 		CE4D182818EBB28300A16507 /* GCHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GCHelper.m; sourceTree = "<group>"; };
-		CE5B75F818E88AB100B2D737 /* AdSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AdSupport.framework; path = System/Library/Frameworks/AdSupport.framework; sourceTree = SDKROOT; };
-		CE5B75FA18E88AB900B2D737 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
-		CE5B75FC18E88AC400B2D737 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 		CE5B75FE18E88ACB00B2D737 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		CEBA899C18EBA7CC009B4979 /* game_over@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "game_over@2x.png"; sourceTree = "<group>"; };
 		CEBA89A218EBA8FC009B4979 /* twitteriCon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "twitteriCon@2x.png"; sourceTree = "<group>"; };
@@ -157,15 +138,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C979843F196EDC78008D0980 /* MessageUI.framework in Frameworks */,
-				C979843D196EDC49008D0980 /* AVFoundation.framework in Frameworks */,
-				C979843B196EDC3E008D0980 /* CoreTelephony.framework in Frameworks */,
-				183BC8101909702700F40F40 /* Accounts.framework in Frameworks */,
 				CE4D182518EBB00E00A16507 /* GameKit.framework in Frameworks */,
 				CE5B75FF18E88ACB00B2D737 /* QuartzCore.framework in Frameworks */,
-				CE5B75FD18E88AC400B2D737 /* SystemConfiguration.framework in Frameworks */,
-				CE5B75FB18E88AB900B2D737 /* StoreKit.framework in Frameworks */,
-				CE5B75F918E88AB100B2D737 /* AdSupport.framework in Frameworks */,
 				CEE995EF18E6055900248B08 /* AudioToolbox.framework in Frameworks */,
 				82C6A0CB18A6FF7400FEBE9B /* SpriteKit.framework in Frameworks */,
 				82C6A09518A6F53400FEBE9B /* CoreGraphics.framework in Frameworks */,
@@ -187,16 +161,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		184AAF53190EB9C300D36910 /* SVProgressHUD */ = {
-			isa = PBXGroup;
-			children = (
-				184AAF55190EB9C300D36910 /* SVProgressHUD.bundle */,
-				184AAF56190EB9C300D36910 /* SVProgressHUD.h */,
-				184AAF57190EB9C300D36910 /* SVProgressHUD.m */,
-			);
-			path = SVProgressHUD;
-			sourceTree = "<group>";
-		};
 		8274FC3318A7F14000FEBCE7 /* Images */ = {
 			isa = PBXGroup;
 			children = (
@@ -253,15 +217,8 @@
 		82C6A09118A6F53400FEBE9B /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				C979843E196EDC78008D0980 /* MessageUI.framework */,
-				C979843C196EDC49008D0980 /* AVFoundation.framework */,
-				C979843A196EDC3E008D0980 /* CoreTelephony.framework */,
-				183BC80F1909702700F40F40 /* Accounts.framework */,
 				CE4D182418EBB00E00A16507 /* GameKit.framework */,
 				CE5B75FE18E88ACB00B2D737 /* QuartzCore.framework */,
-				CE5B75FC18E88AC400B2D737 /* SystemConfiguration.framework */,
-				CE5B75FA18E88AB900B2D737 /* StoreKit.framework */,
-				CE5B75F818E88AB100B2D737 /* AdSupport.framework */,
 				CEE995EE18E6055900248B08 /* AudioToolbox.framework */,
 				82C6A0CA18A6FF7400FEBE9B /* SpriteKit.framework */,
 				82C6A09218A6F53400FEBE9B /* Foundation.framework */,
@@ -361,7 +318,6 @@
 		82C6A0D718A790FE00FEBE9B /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
-				184AAF53190EB9C300D36910 /* SVProgressHUD */,
 				8274FC2818A7E13200FEBCE7 /* Math.h */,
 				8274FC2918A7E13200FEBCE7 /* Math.m */,
 			);
@@ -457,10 +413,10 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0500;
-				ORGANIZATIONNAME = "Mathias Nilles";
+				ORGANIZATIONNAME = "TechInAdvance LLC";
 				TargetAttributes = {
 					82C6A08E18A6F53400FEBE9B = {
-						DevelopmentTeam = SUAE44UU89;
+						DevelopmentTeam = 3ZC7625UVZ;
 					};
 					82C6A0AF18A6F53400FEBE9B = {
 						TestTargetID = 82C6A08E18A6F53400FEBE9B;
@@ -496,7 +452,6 @@
 				821A756818AD618A00B376D5 /* Images.xcassets in Resources */,
 				CEBA89A418EBA8FC009B4979 /* twitteriCon@2x.png in Resources */,
 				823C185118B3F1BB00C9BD2F /* game_over1@2x.png in Resources */,
-				184AAF58190EB9C300D36910 /* SVProgressHUD.bundle in Resources */,
 				823C185418B3FBCC00C9BD2F /* back@2x.png in Resources */,
 				82457DC018B2C3490042CF82 /* pipe_bottom@2x.png in Resources */,
 				823C184518B3E57F00C9BD2F /* taptap@2x.png in Resources */,
@@ -535,7 +490,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				821A756A18AD61B100B376D5 /* main.m in Sources */,
-				184AAF59190EB9C300D36910 /* SVProgressHUD.m in Sources */,
 				821A755718AD617800B376D5 /* ViewController.m in Sources */,
 				821A755818AD617800B376D5 /* Scene.m in Sources */,
 				821A755918AD617800B376D5 /* SKScrollingNode.m in Sources */,
@@ -599,7 +553,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
@@ -612,8 +565,6 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "iPhone Distribution: Mathias Nilles (SUAE44UU89)";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: Mathias Nilles (SUAE44UU89)";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -631,7 +582,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				ONLY_ACTIVE_ARCH = YES;
-				PROVISIONING_PROFILE = "88777F2C-5D31-43B0-87CA-CB4CACD58226";
 				SDKROOT = iphoneos;
 			};
 			name = Debug;
@@ -640,7 +590,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
@@ -653,8 +602,6 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "iPhone Distribution: Mathias Nilles (SUAE44UU89)";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: Mathias Nilles (SUAE44UU89)";
 				COPY_PHASE_STRIP = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -665,7 +612,6 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
-				PROVISIONING_PROFILE = "88777F2C-5D31-43B0-87CA-CB4CACD58226";
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -676,19 +622,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				INFOPLIST_FILE = "spritybird/Supporting Files/Flappy Gratata-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"/Users/MathiasNilles/Desktop/GoogleMobileAdsSdkiOS-6.9.3",
 				);
 				"OTHER_LDFLAGS[arch=*]" = "-ObjC";
 				PRODUCT_NAME = "Flappy Gratata";
-				PROVISIONING_PROFILE = "";
 				TARGETED_DEVICE_FAMILY = 1;
 				WRAPPER_EXTENSION = app;
 			};
@@ -699,19 +641,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				INFOPLIST_FILE = "spritybird/Supporting Files/Flappy Gratata-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"/Users/MathiasNilles/Desktop/GoogleMobileAdsSdkiOS-6.9.3",
 				);
 				"OTHER_LDFLAGS[arch=*]" = "-ObjC";
 				PRODUCT_NAME = "Flappy Gratata";
-				PROVISIONING_PROFILE = "";
 				TARGETED_DEVICE_FAMILY = 1;
 				WRAPPER_EXTENSION = app;
 			};
@@ -720,7 +658,6 @@
 		82C6A0C518A6F53400FEBE9B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/spritybird.app/spritybird";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SDKROOT)/Developer/Library/Frameworks",
@@ -743,7 +680,6 @@
 		82C6A0C618A6F53400FEBE9B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
 				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/spritybird.app/spritybird";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SDKROOT)/Developer/Library/Frameworks",
