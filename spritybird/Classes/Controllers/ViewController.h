@@ -14,9 +14,9 @@
 {
     int playerScore;
 }
-- (IBAction)twitterFunc:(id)sender;
-- (IBAction)gameCenterFunc:(id)sender;
-@property (strong, nonatomic) IBOutlet UIButton *btnTwitter;
-@property (strong, nonatomic) IBOutlet UIButton *btnGameCenter;
+- (void)twitterFunc:(id)sender;
+- (void)gameCenterFunc:(id)sender;
+@property (strong, nonatomic) UIButton *btnTwitter;
+@property (strong, nonatomic) UIButton *btnGameCenter;
 
 @end
