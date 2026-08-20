@@ -8,14 +8,12 @@
 
 #import "Scene.h"
 #import "AppSpecificValues.h"
-#import "GameCenterManager.h"
 #import <GameKit/GameKit.h>
 
-@interface ViewController : UIViewController<SceneDelegate,GameCenterManagerDelegate,GKLeaderboardViewControllerDelegate,GKAchievementViewControllerDelegate>
+@interface ViewController : UIViewController<SceneDelegate, GKGameCenterControllerDelegate>
 {
     int playerScore;
 }
-@property (nonatomic,strong) GameCenterManager *mGameCenterManager;
 - (IBAction)twitterFunc:(id)sender;
 - (IBAction)gameCenterFunc:(id)sender;
 @property (strong, nonatomic) IBOutlet UIButton *btnTwitter;

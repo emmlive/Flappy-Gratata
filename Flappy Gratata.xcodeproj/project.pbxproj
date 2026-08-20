@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		18AD6FA319018AA800FD6B65 /* GameCenterManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 18AD6FA219018AA800FD6B65 /* GameCenterManager.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		576A22CE18B9CB8E001338C0 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 82C6A0A418A6F53400FEBE9B /* Main.storyboard */; };
 		821A755618AD616C00B376D5 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A218A6F53400FEBE9B /* AppDelegate.m */; };
 		821A755718AD617800B376D5 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A818A6F53400FEBE9B /* ViewController.m */; };
@@ -67,8 +66,6 @@
 
 /* Begin PBXFileReference section */
 		18AD6FA019018AA800FD6B65 /* AppSpecificValues.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppSpecificValues.h; sourceTree = "<group>"; };
-		18AD6FA119018AA800FD6B65 /* GameCenterManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GameCenterManager.h; sourceTree = "<group>"; };
-		18AD6FA219018AA800FD6B65 /* GameCenterManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GameCenterManager.m; sourceTree = "<group>"; };
 		823C184318B3E57F00C9BD2F /* taptap@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "taptap@2x.png"; sourceTree = "<group>"; };
 		823C184418B3E57F00C9BD2F /* get_ready@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "get_ready@2x.png"; sourceTree = "<group>"; };
 		823C184718B3F1BB00C9BD2F /* medal_silver@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "medal_silver@2x.png"; sourceTree = "<group>"; };
@@ -338,8 +335,6 @@
 			isa = PBXGroup;
 			children = (
 				18AD6FA019018AA800FD6B65 /* AppSpecificValues.h */,
-				18AD6FA119018AA800FD6B65 /* GameCenterManager.h */,
-				18AD6FA219018AA800FD6B65 /* GameCenterManager.m */,
 			);
 			path = GameCenter;
 			sourceTree = "<group>";
@@ -491,7 +486,6 @@
 				82B99B4618B132B40099A4FE /* Score.m in Sources */,
 				82B99B4218B1301F0099A4FE /* BirdNode.m in Sources */,
 				821A755D18AD617800B376D5 /* Math.m in Sources */,
-				18AD6FA319018AA800FD6B65 /* GameCenterManager.m in Sources */,
 				CEE995F318E6064C00248B08 /* appController.m in Sources */,
 				821A755618AD616C00B376D5 /* AppDelegate.m in Sources */,
 			);

@@ -22,6 +22,12 @@
 
 @end
 
+@interface ViewController ()
+@property (nonatomic, assign) BOOL shouldPresentGameCenterAfterAuthentication;
+@property (nonatomic, assign) BOOL hasPendingGameCenterScore;
+@property (nonatomic, assign) int64_t pendingGameCenterScore;
+@end
+
 @implementation ViewController
 {
     Scene * scene;
@@ -57,16 +63,7 @@
 }
 -(void)viewWillAppear:(BOOL)animated{
     [super viewWillAppear:animated];
-    //----------Initialize and checking Gamecenter----------
-    if ([GameCenterManager isGameCenterAvailable]){
-        _mGameCenterManager = [[GameCenterManager alloc] init];
-        [_mGameCenterManager setDelegate:self];
-        [_mGameCenterManager authenticateLocalUser];
-    }
-    else{
-        [[[UIAlertView alloc] initWithTitle:@"Game Center" message:@"Game Center Support Required! The current device does not support Game Center." delegate:nil cancelButtonTitle:@"Ok" otherButtonTitles: nil] show];
-    }
-    //------------------------------------------------------
+    [self authenticateGameCenterPlayer];
 }
 
 - (BOOL)prefersStatusBarHidden
@@ -144,11 +141,7 @@
     } completion:^(BOOL finished) {
         flash.userInteractionEnabled = NO;
         //showMoreApps
-        if ([GameCenterManager isGameCenterAvailable])
-        {
-            [_mGameCenterManager authenticateLocalUser];
-        }
-        [_mGameCenterManager reportScore:playerScore forCategory: kScoreCardID];
+        [self reportScoreToGameCenter:playerScore];
     }];
     
 }
@@ -179,28 +172,122 @@
                      completion:nil];
 }
 
-- (IBAction)gameCenterFunc:(id)sender {
-    if ([GameCenterManager isGameCenterAvailable]){
-        GKLeaderboardViewController *leaderboardViewController = [[GKLeaderboardViewController alloc] init];
-        leaderboardViewController.leaderboardDelegate = self;
-        [self presentViewController:leaderboardViewController animated:YES completion:nil];
+- (void)authenticateGameCenterPlayer
+{
+    GKLocalPlayer *localPlayer = [GKLocalPlayer localPlayer];
+
+    localPlayer.authenticateHandler =
+        ^(UIViewController *viewController, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (viewController != nil) {
+                if (self.presentedViewController == nil) {
+                    [self presentViewController:viewController
+                                       animated:YES
+                                     completion:nil];
+                }
+                return;
+            }
+
+            if (error != nil) {
+                NSLog(@"Game Center authentication error: %@",
+                      error.localizedDescription);
+                return;
+            }
+
+            if (!localPlayer.isAuthenticated) {
+                return;
+            }
+
+            if (self.hasPendingGameCenterScore) {
+                int64_t pendingScore = self.pendingGameCenterScore;
+                self.hasPendingGameCenterScore = NO;
+                self.pendingGameCenterScore = 0;
+                [self reportScoreToGameCenter:pendingScore];
+            }
+
+            if (self.shouldPresentGameCenterAfterAuthentication) {
+                self.shouldPresentGameCenterAfterAuthentication = NO;
+                [self presentGameCenterLeaderboard];
+            }
+        });
+    };
+}
+
+- (void)reportScoreToGameCenter:(int64_t)score
+{
+    GKLocalPlayer *localPlayer = [GKLocalPlayer localPlayer];
+
+    if (!localPlayer.isAuthenticated) {
+        if (!self.hasPendingGameCenterScore ||
+            score > self.pendingGameCenterScore) {
+            self.pendingGameCenterScore = score;
+            self.hasPendingGameCenterScore = YES;
+        }
+
+        [self authenticateGameCenterPlayer];
+        return;
     }
-    else{
-         [[[UIAlertView alloc] initWithTitle:@"Game Center" message:@"Game Center Support Required! The current device does not support Game Center." delegate:nil cancelButtonTitle:@"Ok" otherButtonTitles: nil] show];
+
+    if (@available(iOS 14.0, *)) {
+        [GKLeaderboard submitScore:score
+                           context:0
+                            player:localPlayer
+                    leaderboardIDs:@[kScoreCardID]
+                 completionHandler:^(NSError *error) {
+            if (error != nil) {
+                NSLog(@"Game Center score submission error: %@",
+                      error.localizedDescription);
+            }
+        }];
+    }
+}
+
+- (IBAction)gameCenterFunc:(id)sender
+{
+    GKLocalPlayer *localPlayer = [GKLocalPlayer localPlayer];
+
+    if (!localPlayer.isAuthenticated) {
+        self.shouldPresentGameCenterAfterAuthentication = YES;
+        [self authenticateGameCenterPlayer];
+        return;
     }
 
-}
-#pragma mark -
-#pragma mark GameKit delegate
--(void) achievementViewControllerDidFinish:(GKAchievementViewController *)viewController{
-    [self dismissViewControllerAnimated:YES completion:nil];
+    [self presentGameCenterLeaderboard];
 }
 
--(void) leaderboardViewControllerDidFinish:(GKLeaderboardViewController *)viewController{
-    [self dismissViewControllerAnimated:YES completion:nil];
+- (void)presentGameCenterLeaderboard
+{
+    if (self.presentedViewController != nil) {
+        return;
+    }
+
+    GKGameCenterViewController *gameCenterViewController = nil;
+
+    if (@available(iOS 14.0, *)) {
+        gameCenterViewController =
+            [[GKGameCenterViewController alloc]
+                initWithLeaderboardID:kScoreCardID
+                          playerScope:GKLeaderboardPlayerScopeGlobal
+                            timeScope:GKLeaderboardTimeScopeAllTime];
+    } else {
+        gameCenterViewController =
+            [[GKGameCenterViewController alloc]
+                initWithState:GKGameCenterViewControllerStateLeaderboards];
+    }
+
+    gameCenterViewController.gameCenterDelegate = self;
+
+    [self presentViewController:gameCenterViewController
+                       animated:YES
+                     completion:nil];
 }
 
-
+- (void)gameCenterViewControllerDidFinish:
+    (GKGameCenterViewController *)gameCenterViewController
+{
+    [gameCenterViewController dismissViewControllerAnimated:YES
+                                                  completion:nil];
+}
 
 @end
 
