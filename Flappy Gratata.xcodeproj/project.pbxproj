@@ -44,7 +44,6 @@
 		82C6A0CB18A6FF7400FEBE9B /* SpriteKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 82C6A0CA18A6FF7400FEBE9B /* SpriteKit.framework */; };
 		82FEEB9418B550BF00AA6C66 /* Main-iPad.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 82FEEB9318B550BF00AA6C66 /* Main-iPad.storyboard */; };
 		CE4D182518EBB00E00A16507 /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE4D182418EBB00E00A16507 /* GameKit.framework */; };
-		CE4D182918EBB28300A16507 /* GCHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = CE4D182818EBB28300A16507 /* GCHelper.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		CE5B75FF18E88ACB00B2D737 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE5B75FE18E88ACB00B2D737 /* QuartzCore.framework */; };
 		CEBA899D18EBA7CC009B4979 /* game_over@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CEBA899C18EBA7CC009B4979 /* game_over@2x.png */; };
 		CEBA89A418EBA8FC009B4979 /* twitteriCon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CEBA89A218EBA8FC009B4979 /* twitteriCon@2x.png */; };
@@ -119,8 +118,6 @@
 		82C6A0E118A79B2400FEBE9B /* Constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Constants.h; sourceTree = "<group>"; };
 		82FEEB9318B550BF00AA6C66 /* Main-iPad.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = "Main-iPad.storyboard"; sourceTree = "<group>"; };
 		CE4D182418EBB00E00A16507 /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = System/Library/Frameworks/GameKit.framework; sourceTree = SDKROOT; };
-		CE4D182718EBB28300A16507 /* GCHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GCHelper.h; sourceTree = "<group>"; };
-		CE4D182818EBB28300A16507 /* GCHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GCHelper.m; sourceTree = "<group>"; };
 		CE5B75FE18E88ACB00B2D737 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		CEBA899C18EBA7CC009B4979 /* game_over@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "game_over@2x.png"; sourceTree = "<group>"; };
 		CEBA89A218EBA8FC009B4979 /* twitteriCon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "twitteriCon@2x.png"; sourceTree = "<group>"; };
@@ -343,8 +340,6 @@
 				18AD6FA019018AA800FD6B65 /* AppSpecificValues.h */,
 				18AD6FA119018AA800FD6B65 /* GameCenterManager.h */,
 				18AD6FA219018AA800FD6B65 /* GameCenterManager.m */,
-				CE4D182718EBB28300A16507 /* GCHelper.h */,
-				CE4D182818EBB28300A16507 /* GCHelper.m */,
 			);
 			path = GameCenter;
 			sourceTree = "<group>";
@@ -499,7 +494,6 @@
 				18AD6FA319018AA800FD6B65 /* GameCenterManager.m in Sources */,
 				CEE995F318E6064C00248B08 /* appController.m in Sources */,
 				821A755618AD616C00B376D5 /* AppDelegate.m in Sources */,
-				CE4D182918EBB28300A16507 /* GCHelper.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
