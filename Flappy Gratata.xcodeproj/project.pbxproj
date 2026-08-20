@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		576A22CE18B9CB8E001338C0 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 82C6A0A418A6F53400FEBE9B /* Main.storyboard */; };
 		821A755618AD616C00B376D5 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A218A6F53400FEBE9B /* AppDelegate.m */; };
 		821A755718AD617800B376D5 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A818A6F53400FEBE9B /* ViewController.m */; };
 		821A755818AD617800B376D5 /* Scene.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0C818A6FF4200FEBE9B /* Scene.m */; };
@@ -41,7 +40,6 @@
 		82C6A0BC18A6F53400FEBE9B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 82C6A0BA18A6F53400FEBE9B /* InfoPlist.strings */; };
 		82C6A0BE18A6F53400FEBE9B /* spritybirdTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0BD18A6F53400FEBE9B /* spritybirdTests.m */; };
 		82C6A0CB18A6FF7400FEBE9B /* SpriteKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 82C6A0CA18A6FF7400FEBE9B /* SpriteKit.framework */; };
-		82FEEB9418B550BF00AA6C66 /* Main-iPad.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 82FEEB9318B550BF00AA6C66 /* Main-iPad.storyboard */; };
 		CE4D182518EBB00E00A16507 /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE4D182418EBB00E00A16507 /* GameKit.framework */; };
 		CE5B75FF18E88ACB00B2D737 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE5B75FE18E88ACB00B2D737 /* QuartzCore.framework */; };
 		CEBA899D18EBA7CC009B4979 /* game_over@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CEBA899C18EBA7CC009B4979 /* game_over@2x.png */; };
@@ -97,7 +95,6 @@
 		82C6A0A018A6F53400FEBE9B /* Flappy Gratata-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Flappy Gratata-Prefix.pch"; sourceTree = "<group>"; };
 		82C6A0A118A6F53400FEBE9B /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		82C6A0A218A6F53400FEBE9B /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
-		82C6A0A518A6F53400FEBE9B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		82C6A0A718A6F53400FEBE9B /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		82C6A0A818A6F53400FEBE9B /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		82C6A0AA18A6F53400FEBE9B /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
@@ -113,7 +110,6 @@
 		82C6A0DB18A7918800FEBE9B /* SKScrollingNode.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SKScrollingNode.m; sourceTree = "<group>"; };
 		82C6A0E018A79B2400FEBE9B /* Macros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Macros.h; sourceTree = "<group>"; };
 		82C6A0E118A79B2400FEBE9B /* Constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Constants.h; sourceTree = "<group>"; };
-		82FEEB9318B550BF00AA6C66 /* Main-iPad.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = "Main-iPad.storyboard"; sourceTree = "<group>"; };
 		CE4D182418EBB00E00A16507 /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = System/Library/Frameworks/GameKit.framework; sourceTree = SDKROOT; };
 		CE5B75FE18E88ACB00B2D737 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		CEBA899C18EBA7CC009B4979 /* game_over@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "game_over@2x.png"; sourceTree = "<group>"; };
@@ -323,8 +319,6 @@
 			children = (
 				CEE995F018E6064C00248B08 /* AppController */,
 				CEE995E718E604D500248B08 /* Sounds */,
-				82FEEB9318B550BF00AA6C66 /* Main-iPad.storyboard */,
-				82C6A0A418A6F53400FEBE9B /* Main.storyboard */,
 				8274FC3318A7F14000FEBCE7 /* Images */,
 				82C6A0AA18A6F53400FEBE9B /* Images.xcassets */,
 			);
@@ -448,7 +442,6 @@
 				823C184E18B3F1BB00C9BD2F /* medal_gold@2x.png in Resources */,
 				823C185018B3F1BB00C9BD2F /* medal_plate@2x.png in Resources */,
 				CEE995ED18E604D500248B08 /* PointSound.mp3 in Resources */,
-				82FEEB9418B550BF00AA6C66 /* Main-iPad.storyboard in Resources */,
 				823C185218B3F1BB00C9BD2F /* medal_platinum@2x.png in Resources */,
 				823C184F18B3F1BB00C9BD2F /* medal_bronze@2x.png in Resources */,
 				82457DBF18B2C3490042CF82 /* pipe_top@2x.png in Resources */,
@@ -456,7 +449,6 @@
 				CEBA89A518EBA8FC009B4979 /* gameCenterIcon@2x.png in Resources */,
 				CEBA899D18EBA7CC009B4979 /* game_over@2x.png in Resources */,
 				823C184618B3E57F00C9BD2F /* get_ready@2x.png in Resources */,
-				576A22CE18B9CB8E001338C0 /* Main.storyboard in Resources */,
 				CEE995EC18E604D500248B08 /* JumpSound.mp3 in Resources */,
 				82457DBD18B2C3490042CF82 /* bird_3@2x.png in Resources */,
 				CEE995EB18E604D500248B08 /* GameOverSound.mp3 in Resources */,
@@ -516,14 +508,6 @@
 				82C6A09C18A6F53400FEBE9B /* en */,
 			);
 			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		82C6A0A418A6F53400FEBE9B /* Main.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				82C6A0A518A6F53400FEBE9B /* Base */,
-			);
-			name = Main.storyboard;
 			sourceTree = "<group>";
 		};
 		82C6A0BA18A6F53400FEBE9B /* InfoPlist.strings */ = {
