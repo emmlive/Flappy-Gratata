@@ -10,6 +10,7 @@
 #import "ViewController.h"
 #import "Scene.h"
 #import "Score.h"
+#import "BirdHangarViewController.h"
 
 @interface ViewController ()
 @property (strong, nonatomic) SKView *gameView;
@@ -19,6 +20,7 @@
 @property (strong, nonatomic) UIImageView *medalImageView;
 @property (strong, nonatomic) UILabel *currentScore;
 @property (strong, nonatomic) UILabel *bestScoreLabel;
+@property (strong, nonatomic) UIButton *btnHangar;
 
 @end
 
@@ -123,6 +125,32 @@
                  forControlEvents:UIControlEventTouchUpInside];
     [self.gameOverView addSubview:self.btnGameCenter];
 
+    self.btnHangar = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnHangar.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnHangar.accessibilityLabel = @"Bird Hangar";
+    [self.btnHangar setTitle:@"HANGAR"
+                    forState:UIControlStateNormal];
+    [self.btnHangar setTitleColor:[UIColor whiteColor]
+                         forState:UIControlStateNormal];
+    self.btnHangar.titleLabel.font =
+        [UIFont boldSystemFontOfSize:15.0];
+    self.btnHangar.backgroundColor =
+        [UIColor colorWithRed:0.05
+                        green:0.24
+                         blue:0.34
+                        alpha:0.96];
+    self.btnHangar.layer.cornerRadius = 11.0;
+    self.btnHangar.layer.borderWidth = 1.0;
+    self.btnHangar.layer.borderColor =
+        [UIColor colorWithRed:0.25
+                        green:0.85
+                         blue:1.0
+                        alpha:0.85].CGColor;
+    [self.btnHangar addTarget:self
+                       action:@selector(hangarFunc:)
+             forControlEvents:UIControlEventTouchUpInside];
+    [self.gameOverView addSubview:self.btnHangar];
+
     UILayoutGuide *safeArea = rootView.safeAreaLayoutGuide;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -198,7 +226,13 @@
                                                            constant:-24.0],
         [self.bestScoreLabel.topAnchor constraintEqualToAnchor:self.currentScore.bottomAnchor
                                                       constant:18.0],
-        [self.bestScoreLabel.widthAnchor constraintEqualToConstant:58.0]
+        [self.bestScoreLabel.widthAnchor constraintEqualToConstant:58.0],
+
+        [self.btnHangar.topAnchor constraintEqualToAnchor:medalPlate.bottomAnchor
+                                                 constant:14.0],
+        [self.btnHangar.centerXAnchor constraintEqualToAnchor:self.gameOverView.centerXAnchor],
+        [self.btnHangar.widthAnchor constraintEqualToConstant:170.0],
+        [self.btnHangar.heightAnchor constraintEqualToConstant:42.0]
     ]];
 }
 
@@ -321,6 +355,25 @@
     [animation setToValue:[NSValue valueWithCGPoint:
                            CGPointMake([self.view  center].x + 4.0f, [self.view  center].y)]];
     [[self.view layer] addAnimation:animation forKey:@"position"];
+}
+
+#pragma mark - Bird Hangar
+
+- (void)hangarFunc:(id)sender
+{
+    if (self.presentedViewController != nil) {
+        return;
+    }
+
+    BirdHangarViewController *hangar =
+        [[BirdHangarViewController alloc] init];
+
+    hangar.modalPresentationStyle =
+        UIModalPresentationFullScreen;
+
+    [self presentViewController:hangar
+                       animated:YES
+                     completion:nil];
 }
 
 #pragma mark - Twitter - GameCenter

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		821A755618AD616C00B376D5 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A218A6F53400FEBE9B /* AppDelegate.m */; };
 		821A755718AD617800B376D5 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A818A6F53400FEBE9B /* ViewController.m */; };
+		A8D5000318B132B40099A4FE /* BirdHangarViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A8D5000218B132B40099A4FE /* BirdHangarViewController.m */; };
 		821A755818AD617800B376D5 /* Scene.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0C818A6FF4200FEBE9B /* Scene.m */; };
 		821A755918AD617800B376D5 /* SKScrollingNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0DB18A7918800FEBE9B /* SKScrollingNode.m */; };
 		821A755D18AD617800B376D5 /* Math.m in Sources */ = {isa = PBXBuildFile; fileRef = 8274FC2918A7E13200FEBCE7 /* Math.m */; };
@@ -106,6 +107,8 @@
 		82C6A0A218A6F53400FEBE9B /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		82C6A0A718A6F53400FEBE9B /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		82C6A0A818A6F53400FEBE9B /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		A8D5000118B132B40099A4FE /* BirdHangarViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BirdHangarViewController.h; sourceTree = "<group>"; };
+		A8D5000218B132B40099A4FE /* BirdHangarViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BirdHangarViewController.m; sourceTree = "<group>"; };
 		82C6A0AA18A6F53400FEBE9B /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		82C6A0B018A6F53400FEBE9B /* Flappy GratataTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Flappy GratataTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		82C6A0B118A6F53400FEBE9B /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
@@ -294,6 +297,8 @@
 			children = (
 				82C6A0A718A6F53400FEBE9B /* ViewController.h */,
 				82C6A0A818A6F53400FEBE9B /* ViewController.m */,
+				A8D5000118B132B40099A4FE /* BirdHangarViewController.h */,
+				A8D5000218B132B40099A4FE /* BirdHangarViewController.m */,
 			);
 			path = Controllers;
 			sourceTree = "<group>";
@@ -490,6 +495,7 @@
 			files = (
 				821A756A18AD61B100B376D5 /* main.m in Sources */,
 				821A755718AD617800B376D5 /* ViewController.m in Sources */,
+				A8D5000318B132B40099A4FE /* BirdHangarViewController.m in Sources */,
 				821A755818AD617800B376D5 /* Scene.m in Sources */,
 				821A755918AD617800B376D5 /* SKScrollingNode.m in Sources */,
 				82B99B4618B132B40099A4FE /* Score.m in Sources */,
