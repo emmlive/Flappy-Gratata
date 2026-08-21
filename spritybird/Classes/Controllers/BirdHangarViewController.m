@@ -62,6 +62,157 @@
         [UIFont boldSystemFontOfSize:14.0];
     [contentView addSubview:self.selectedBirdLabel];
 
+    UIView *flightDNACard =
+        [[UIView alloc] initWithFrame:CGRectZero];
+    flightDNACard.translatesAutoresizingMaskIntoConstraints = NO;
+    flightDNACard.backgroundColor =
+        [UIColor colorWithRed:0.035
+                        green:0.095
+                         blue:0.155
+                        alpha:1.0];
+    flightDNACard.layer.cornerRadius = 18.0;
+    flightDNACard.layer.borderWidth = 1.0;
+    flightDNACard.layer.borderColor =
+        [UIColor colorWithRed:0.22
+                        green:0.78
+                         blue:0.98
+                        alpha:0.72].CGColor;
+    flightDNACard.accessibilityLabel =
+        @"Flight DNA, coming in a future update";
+    [contentView addSubview:flightDNACard];
+
+    UILabel *flightDNATitle =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    flightDNATitle.translatesAutoresizingMaskIntoConstraints = NO;
+    flightDNATitle.text = @"FLIGHT DNA";
+    flightDNATitle.textColor = [UIColor whiteColor];
+    flightDNATitle.font =
+        [UIFont boldSystemFontOfSize:18.0];
+    [flightDNACard addSubview:flightDNATitle];
+
+    UILabel *flightDNASignature =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    flightDNASignature.translatesAutoresizingMaskIntoConstraints = NO;
+    flightDNASignature.text =
+        @"Your bird remembers how you fly.";
+    flightDNASignature.textColor =
+        [UIColor colorWithWhite:0.78 alpha:1.0];
+    flightDNASignature.font =
+        [UIFont systemFontOfSize:13.0
+                         weight:UIFontWeightMedium];
+    flightDNASignature.adjustsFontSizeToFitWidth = YES;
+    flightDNASignature.minimumScaleFactor = 0.80;
+    [flightDNACard addSubview:flightDNASignature];
+
+    UILabel *flightDNAStatus =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    flightDNAStatus.translatesAutoresizingMaskIntoConstraints = NO;
+    flightDNAStatus.text = @"DNA SIGNAL  •  DORMANT";
+    flightDNAStatus.textColor =
+        [UIColor colorWithRed:0.28
+                        green:0.88
+                         blue:1.0
+                        alpha:1.0];
+    flightDNAStatus.font =
+        [UIFont boldSystemFontOfSize:11.0];
+    flightDNAStatus.accessibilityLabel =
+        @"Flight DNA signal dormant";
+    [flightDNACard addSubview:flightDNAStatus];
+
+    UIStackView *dnaSignal =
+        [[UIStackView alloc] initWithFrame:CGRectZero];
+    dnaSignal.translatesAutoresizingMaskIntoConstraints = NO;
+    dnaSignal.axis = UILayoutConstraintAxisHorizontal;
+    dnaSignal.alignment = UIStackViewAlignmentCenter;
+    dnaSignal.distribution = UIStackViewDistributionFillEqually;
+    dnaSignal.spacing = 8.0;
+    dnaSignal.userInteractionEnabled = NO;
+    dnaSignal.accessibilityElementsHidden = YES;
+    [flightDNACard addSubview:dnaSignal];
+
+    for (NSInteger index = 0; index < 5; index++) {
+        UIView *node =
+            [[UIView alloc] initWithFrame:CGRectZero];
+        node.translatesAutoresizingMaskIntoConstraints = NO;
+        node.backgroundColor =
+            [UIColor colorWithRed:0.10
+                            green:0.28
+                             blue:0.38
+                            alpha:1.0];
+        node.layer.cornerRadius = 5.0;
+        node.layer.borderWidth = 1.0;
+        node.layer.borderColor =
+            [UIColor colorWithRed:0.24
+                            green:0.72
+                             blue:0.92
+                            alpha:0.45].CGColor;
+
+        [NSLayoutConstraint activateConstraints:@[
+            [node.heightAnchor constraintEqualToConstant:10.0]
+        ]];
+
+        [dnaSignal addArrangedSubview:node];
+    }
+
+    UIView *echoDivider =
+        [[UIView alloc] initWithFrame:CGRectZero];
+    echoDivider.translatesAutoresizingMaskIntoConstraints = NO;
+    echoDivider.backgroundColor =
+        [UIColor colorWithRed:0.20
+                        green:0.58
+                         blue:0.76
+                        alpha:0.32];
+    [flightDNACard addSubview:echoDivider];
+
+    UILabel *echoTitle =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    echoTitle.translatesAutoresizingMaskIntoConstraints = NO;
+    echoTitle.text = @"ECHO GRATATA";
+    echoTitle.textColor =
+        [UIColor colorWithRed:0.78
+                        green:0.94
+                         blue:1.0
+                        alpha:1.0];
+    echoTitle.font =
+        [UIFont boldSystemFontOfSize:15.0];
+    [flightDNACard addSubview:echoTitle];
+
+    UILabel *echoDetail =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    echoDetail.translatesAutoresizingMaskIntoConstraints = NO;
+    echoDetail.text =
+        @"A unique Gratata shaped by your future Flight DNA.";
+    echoDetail.textColor =
+        [UIColor colorWithWhite:0.65 alpha:1.0];
+    echoDetail.font =
+        [UIFont systemFontOfSize:11.5
+                         weight:UIFontWeightMedium];
+    echoDetail.numberOfLines = 2;
+    [flightDNACard addSubview:echoDetail];
+
+    UILabel *echoStatus =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    echoStatus.translatesAutoresizingMaskIntoConstraints = NO;
+    echoStatus.text = @"RESERVED";
+    echoStatus.textAlignment = NSTextAlignmentCenter;
+    echoStatus.textColor =
+        [UIColor colorWithRed:0.40
+                        green:0.88
+                         blue:1.0
+                        alpha:1.0];
+    echoStatus.font =
+        [UIFont boldSystemFontOfSize:10.0];
+    echoStatus.backgroundColor =
+        [UIColor colorWithRed:0.07
+                        green:0.22
+                         blue:0.30
+                        alpha:1.0];
+    echoStatus.layer.cornerRadius = 9.0;
+    echoStatus.layer.masksToBounds = YES;
+    echoStatus.accessibilityLabel =
+        @"Echo Gratata reserved for future Flight DNA";
+    [flightDNACard addSubview:echoStatus];
+
     UIStackView *stack =
         [[UIStackView alloc] initWithFrame:CGRectZero];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
@@ -356,8 +507,99 @@
         [self.selectedBirdLabel.trailingAnchor
             constraintEqualToAnchor:titleLabel.trailingAnchor],
 
-        [stack.topAnchor
+        [flightDNACard.topAnchor
             constraintEqualToAnchor:self.selectedBirdLabel.bottomAnchor
+                           constant:18.0],
+        [flightDNACard.leadingAnchor
+            constraintEqualToAnchor:contentView.leadingAnchor
+                           constant:18.0],
+        [flightDNACard.trailingAnchor
+            constraintEqualToAnchor:contentView.trailingAnchor
+                           constant:-18.0],
+        [flightDNACard.heightAnchor
+            constraintEqualToConstant:190.0],
+
+        [flightDNATitle.topAnchor
+            constraintEqualToAnchor:flightDNACard.topAnchor
+                           constant:16.0],
+        [flightDNATitle.leadingAnchor
+            constraintEqualToAnchor:flightDNACard.leadingAnchor
+                           constant:16.0],
+        [flightDNATitle.trailingAnchor
+            constraintLessThanOrEqualToAnchor:flightDNACard.trailingAnchor
+                                      constant:-16.0],
+
+        [flightDNASignature.topAnchor
+            constraintEqualToAnchor:flightDNATitle.bottomAnchor
+                           constant:4.0],
+        [flightDNASignature.leadingAnchor
+            constraintEqualToAnchor:flightDNATitle.leadingAnchor],
+        [flightDNASignature.trailingAnchor
+            constraintEqualToAnchor:flightDNACard.trailingAnchor
+                           constant:-16.0],
+
+        [flightDNAStatus.topAnchor
+            constraintEqualToAnchor:flightDNASignature.bottomAnchor
+                           constant:12.0],
+        [flightDNAStatus.leadingAnchor
+            constraintEqualToAnchor:flightDNATitle.leadingAnchor],
+        [flightDNAStatus.trailingAnchor
+            constraintLessThanOrEqualToAnchor:flightDNACard.trailingAnchor
+                                      constant:-16.0],
+
+        [dnaSignal.topAnchor
+            constraintEqualToAnchor:flightDNAStatus.bottomAnchor
+                           constant:8.0],
+        [dnaSignal.leadingAnchor
+            constraintEqualToAnchor:flightDNATitle.leadingAnchor],
+        [dnaSignal.trailingAnchor
+            constraintEqualToAnchor:flightDNACard.trailingAnchor
+                           constant:-16.0],
+        [dnaSignal.heightAnchor
+            constraintEqualToConstant:12.0],
+
+        [echoDivider.topAnchor
+            constraintEqualToAnchor:dnaSignal.bottomAnchor
+                           constant:14.0],
+        [echoDivider.leadingAnchor
+            constraintEqualToAnchor:flightDNATitle.leadingAnchor],
+        [echoDivider.trailingAnchor
+            constraintEqualToAnchor:flightDNACard.trailingAnchor
+                           constant:-16.0],
+        [echoDivider.heightAnchor
+            constraintEqualToConstant:1.0],
+
+        [echoTitle.topAnchor
+            constraintEqualToAnchor:echoDivider.bottomAnchor
+                           constant:12.0],
+        [echoTitle.leadingAnchor
+            constraintEqualToAnchor:flightDNATitle.leadingAnchor],
+
+        [echoStatus.trailingAnchor
+            constraintEqualToAnchor:flightDNACard.trailingAnchor
+                           constant:-16.0],
+        [echoStatus.centerYAnchor
+            constraintEqualToAnchor:echoTitle.centerYAnchor],
+        [echoStatus.widthAnchor
+            constraintEqualToConstant:72.0],
+        [echoStatus.heightAnchor
+            constraintEqualToConstant:22.0],
+
+        [echoTitle.trailingAnchor
+            constraintLessThanOrEqualToAnchor:echoStatus.leadingAnchor
+                                      constant:-8.0],
+
+        [echoDetail.topAnchor
+            constraintEqualToAnchor:echoTitle.bottomAnchor
+                           constant:4.0],
+        [echoDetail.leadingAnchor
+            constraintEqualToAnchor:echoTitle.leadingAnchor],
+        [echoDetail.trailingAnchor
+            constraintEqualToAnchor:flightDNACard.trailingAnchor
+                           constant:-16.0],
+
+        [stack.topAnchor
+            constraintEqualToAnchor:flightDNACard.bottomAnchor
                            constant:18.0],
         [stack.leadingAnchor
             constraintEqualToAnchor:contentView.leadingAnchor
