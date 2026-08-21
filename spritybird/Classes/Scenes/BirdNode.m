@@ -7,6 +7,7 @@
 //
 
 #import "BirdNode.h"
+#import "../Models/BirdCatalog.h"
 
 #define VERTICAL_SPEED 1
 #define VERTICAL_DELTA 5.0
@@ -25,12 +26,20 @@ static bool goingUp = false;
 {
     if(self = [super init]){
         
-        // TODO : use texture atlas
-        SKTexture* birdTexture1 = [SKTexture textureWithImageNamed:@"bird_1"];
+        NSString *selectedBirdID = [BirdCatalog selectedBirdID];
+        NSArray *textureNames =
+            [BirdCatalog textureNamesForBirdID:selectedBirdID];
+
+        SKTexture* birdTexture1 =
+            [SKTexture textureWithImageNamed:textureNames[0]];
         birdTexture1.filteringMode = SKTextureFilteringNearest;
-        SKTexture* birdTexture2 = [SKTexture textureWithImageNamed:@"bird_2"];
+
+        SKTexture* birdTexture2 =
+            [SKTexture textureWithImageNamed:textureNames[1]];
         birdTexture2.filteringMode = SKTextureFilteringNearest;
-        SKTexture* birdTexture3 = [SKTexture textureWithImageNamed:@"bird_3"];
+
+        SKTexture* birdTexture3 =
+            [SKTexture textureWithImageNamed:textureNames[2]];
         birdTexture2.filteringMode = SKTextureFilteringNearest;
         
 
