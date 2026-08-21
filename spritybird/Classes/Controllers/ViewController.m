@@ -268,10 +268,10 @@
 - (void)eventWasted
 {
     
-    flash = [[UIView alloc] initWithFrame:self.view.frame];
+    flash = [[UIView alloc] initWithFrame:self.view.bounds];
     flash.backgroundColor = [UIColor whiteColor];
     flash.alpha = .9;
-   [self.gameView insertSubview:flash belowSubview:self.getReadyView];
+   [self.view insertSubview:flash belowSubview:self.getReadyView];
     [APP_CTRL playGameOverSound];
     
     [self shakeFrame];
