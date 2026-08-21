@@ -120,6 +120,12 @@
         nameLabel.textColor = [UIColor whiteColor];
         nameLabel.font =
             [UIFont boldSystemFontOfSize:17.0];
+        nameLabel.numberOfLines = 1;
+        nameLabel.adjustsFontSizeToFitWidth = YES;
+        nameLabel.minimumScaleFactor = 0.75;
+        nameLabel.lineBreakMode = NSLineBreakByClipping;
+        [nameLabel setContentCompressionResistancePriority:UILayoutPriorityDefaultLow
+                                                  forAxis:UILayoutConstraintAxisHorizontal];
         [card addSubview:nameLabel];
 
         UILabel *rarityLabel =
@@ -240,15 +246,15 @@
 
             [preview.leadingAnchor
                 constraintEqualToAnchor:card.leadingAnchor
-                               constant:12.0],
+                               constant:10.0],
             [preview.centerYAnchor
                 constraintEqualToAnchor:card.centerYAnchor],
-            [preview.widthAnchor constraintEqualToConstant:78.0],
-            [preview.heightAnchor constraintEqualToConstant:68.0],
+            [preview.widthAnchor constraintEqualToConstant:64.0],
+            [preview.heightAnchor constraintEqualToConstant:64.0],
 
             [nameLabel.leadingAnchor
                 constraintEqualToAnchor:preview.trailingAnchor
-                               constant:12.0],
+                               constant:10.0],
             [nameLabel.topAnchor
                 constraintEqualToAnchor:card.topAnchor
                                constant:16.0],
@@ -270,10 +276,10 @@
 
             [equipButton.trailingAnchor
                 constraintEqualToAnchor:card.trailingAnchor
-                               constant:-12.0],
+                               constant:-10.0],
             [equipButton.centerYAnchor
                 constraintEqualToAnchor:card.centerYAnchor],
-            [equipButton.widthAnchor constraintEqualToConstant:82.0],
+            [equipButton.widthAnchor constraintEqualToConstant:72.0],
             [equipButton.heightAnchor constraintEqualToConstant:36.0]
         ]];
 
