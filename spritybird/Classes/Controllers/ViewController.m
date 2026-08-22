@@ -67,6 +67,23 @@
 
     self.gameOverView = [[UIView alloc] initWithFrame:CGRectZero];
     self.gameOverView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.gameOverView.backgroundColor =
+        [UIColor colorWithRed:0.025
+                        green:0.060
+                         blue:0.115
+                        alpha:0.97];
+    self.gameOverView.layer.cornerRadius = 24.0;
+    self.gameOverView.layer.borderWidth = 1.0;
+    self.gameOverView.layer.borderColor =
+        [UIColor colorWithRed:0.22
+                        green:0.78
+                         blue:0.98
+                        alpha:0.62].CGColor;
+    self.gameOverView.layer.shadowColor =
+        [UIColor blackColor].CGColor;
+    self.gameOverView.layer.shadowOpacity = 0.32;
+    self.gameOverView.layer.shadowRadius = 18.0;
+    self.gameOverView.layer.shadowOffset = CGSizeMake(0.0, 9.0);
     self.gameOverView.userInteractionEnabled = YES;
     [rootView addSubview:self.gameOverView];
 
@@ -90,36 +107,111 @@
     self.currentScore = [[UILabel alloc] initWithFrame:CGRectZero];
     self.currentScore.translatesAutoresizingMaskIntoConstraints = NO;
     self.currentScore.textAlignment = NSTextAlignmentRight;
-    self.currentScore.textColor = [UIColor whiteColor];
-    self.currentScore.font = [UIFont boldSystemFontOfSize:18.0];
+    self.currentScore.textColor =
+        [UIColor colorWithRed:0.32
+                        green:0.90
+                         blue:1.0
+                        alpha:1.0];
+    self.currentScore.font =
+        [UIFont systemFontOfSize:19.0
+                         weight:UIFontWeightBold];
     self.currentScore.text = @"0";
     [self.gameOverView addSubview:self.currentScore];
 
     self.bestScoreLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     self.bestScoreLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.bestScoreLabel.textAlignment = NSTextAlignmentRight;
-    self.bestScoreLabel.textColor = [UIColor whiteColor];
-    self.bestScoreLabel.font = [UIFont boldSystemFontOfSize:18.0];
+    self.bestScoreLabel.textColor =
+        [UIColor colorWithWhite:0.94 alpha:1.0];
+    self.bestScoreLabel.font =
+        [UIFont systemFontOfSize:19.0
+                         weight:UIFontWeightBold];
     self.bestScoreLabel.text = @"0";
     [self.gameOverView addSubview:self.bestScoreLabel];
 
-    self.btnTwitter = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.btnTwitter = [UIButton buttonWithType:UIButtonTypeSystem];
     self.btnTwitter.translatesAutoresizingMaskIntoConstraints = NO;
     self.btnTwitter.accessibilityLabel = @"Share";
-    [self.btnTwitter setImage:[UIImage imageNamed:@"twitteriCon"]
+    UIImage *shareSymbol =
+        [UIImage systemImageNamed:@"square.and.arrow.up"];
+
+    [self.btnTwitter setImage:shareSymbol
+                    forState:UIControlStateNormal];
+    [self.btnTwitter setTitle:@"SHARE"
                      forState:UIControlStateNormal];
-    self.btnTwitter.imageView.contentMode = UIViewContentModeScaleAspectFit;
+    [self.btnTwitter setTitleColor:[UIColor whiteColor]
+                          forState:UIControlStateNormal];
+
+    self.btnTwitter.tintColor =
+        [UIColor colorWithRed:0.30
+                        green:0.88
+                         blue:1.0
+                        alpha:1.0];
+    self.btnTwitter.backgroundColor =
+        [UIColor colorWithRed:0.055
+                        green:0.135
+                         blue:0.215
+                        alpha:1.0];
+    self.btnTwitter.titleLabel.font =
+        [UIFont boldSystemFontOfSize:13.0];
+    self.btnTwitter.layer.cornerRadius = 14.0;
+    self.btnTwitter.layer.borderWidth = 1.0;
+    self.btnTwitter.layer.borderColor =
+        [UIColor colorWithRed:0.22
+                        green:0.72
+                         blue:0.92
+                        alpha:0.52].CGColor;
+    self.btnTwitter.imageView.contentMode =
+        UIViewContentModeScaleAspectFit;
+    self.btnTwitter.imageEdgeInsets =
+        UIEdgeInsetsMake(0.0, -7.0, 0.0, 0.0);
+    self.btnTwitter.titleEdgeInsets =
+        UIEdgeInsetsMake(0.0, 7.0, 0.0, 0.0);
     [self.btnTwitter addTarget:self
                         action:@selector(twitterFunc:)
               forControlEvents:UIControlEventTouchUpInside];
     [self.gameOverView addSubview:self.btnTwitter];
 
-    self.btnGameCenter = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.btnGameCenter = [UIButton buttonWithType:UIButtonTypeSystem];
     self.btnGameCenter.translatesAutoresizingMaskIntoConstraints = NO;
     self.btnGameCenter.accessibilityLabel = @"Game Center";
-    [self.btnGameCenter setImage:[UIImage imageNamed:@"gameCenterIcon"]
+    UIImage *gameCenterSymbol =
+        [UIImage systemImageNamed:@"trophy.fill"];
+
+    [self.btnGameCenter setImage:gameCenterSymbol
+                       forState:UIControlStateNormal];
+    [self.btnGameCenter setTitle:@"LEADERBOARD"
                         forState:UIControlStateNormal];
-    self.btnGameCenter.imageView.contentMode = UIViewContentModeScaleAspectFit;
+    [self.btnGameCenter setTitleColor:[UIColor whiteColor]
+                             forState:UIControlStateNormal];
+
+    self.btnGameCenter.tintColor =
+        [UIColor colorWithRed:1.0
+                        green:0.78
+                         blue:0.24
+                        alpha:1.0];
+    self.btnGameCenter.backgroundColor =
+        [UIColor colorWithRed:0.055
+                        green:0.135
+                         blue:0.215
+                        alpha:1.0];
+    self.btnGameCenter.titleLabel.font =
+        [UIFont boldSystemFontOfSize:12.0];
+    self.btnGameCenter.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.btnGameCenter.titleLabel.minimumScaleFactor = 0.78;
+    self.btnGameCenter.layer.cornerRadius = 14.0;
+    self.btnGameCenter.layer.borderWidth = 1.0;
+    self.btnGameCenter.layer.borderColor =
+        [UIColor colorWithRed:0.95
+                        green:0.70
+                         blue:0.22
+                        alpha:0.50].CGColor;
+    self.btnGameCenter.imageView.contentMode =
+        UIViewContentModeScaleAspectFit;
+    self.btnGameCenter.imageEdgeInsets =
+        UIEdgeInsetsMake(0.0, -5.0, 0.0, 0.0);
+    self.btnGameCenter.titleEdgeInsets =
+        UIEdgeInsetsMake(0.0, 5.0, 0.0, 0.0);
     [self.btnGameCenter addTarget:self
                            action:@selector(gameCenterFunc:)
                  forControlEvents:UIControlEventTouchUpInside];
