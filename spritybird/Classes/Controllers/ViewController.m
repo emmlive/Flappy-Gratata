@@ -53,17 +53,111 @@
     self.getReadyView.userInteractionEnabled = NO;
     [rootView addSubview:self.getReadyView];
 
-    UIImageView *readyImage =
-        [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"get_ready"]];
-    readyImage.translatesAutoresizingMaskIntoConstraints = NO;
-    readyImage.contentMode = UIViewContentModeScaleAspectFit;
-    [self.getReadyView addSubview:readyImage];
+    UIView *readyCard =
+        [[UIView alloc] initWithFrame:CGRectZero];
+    readyCard.translatesAutoresizingMaskIntoConstraints = NO;
+    readyCard.backgroundColor =
+        [UIColor colorWithRed:0.025
+                        green:0.060
+                         blue:0.115
+                        alpha:0.94];
+    readyCard.layer.cornerRadius = 22.0;
+    readyCard.layer.borderWidth = 1.0;
+    readyCard.layer.borderColor =
+        [UIColor colorWithRed:0.22
+                        green:0.78
+                         blue:0.98
+                        alpha:0.66].CGColor;
+    readyCard.layer.shadowColor =
+        [UIColor blackColor].CGColor;
+    readyCard.layer.shadowOpacity = 0.28;
+    readyCard.layer.shadowRadius = 16.0;
+    readyCard.layer.shadowOffset = CGSizeMake(0.0, 8.0);
+    readyCard.userInteractionEnabled = NO;
+    [self.getReadyView addSubview:readyCard];
 
-    UIImageView *tapImage =
-        [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"taptap"]];
-    tapImage.translatesAutoresizingMaskIntoConstraints = NO;
-    tapImage.contentMode = UIViewContentModeScaleAspectFit;
-    [self.getReadyView addSubview:tapImage];
+    UILabel *readyTitle =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    readyTitle.translatesAutoresizingMaskIntoConstraints = NO;
+    readyTitle.text = @"READY";
+    readyTitle.textAlignment = NSTextAlignmentCenter;
+    readyTitle.textColor = [UIColor whiteColor];
+    readyTitle.font =
+        [UIFont systemFontOfSize:30.0
+                         weight:UIFontWeightHeavy];
+    readyTitle.adjustsFontSizeToFitWidth = YES;
+    readyTitle.minimumScaleFactor = 0.8;
+    [readyCard addSubview:readyTitle];
+
+    UILabel *readySubtitle =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    readySubtitle.translatesAutoresizingMaskIntoConstraints = NO;
+    readySubtitle.text = @"FLAPPY GRATATA";
+    readySubtitle.textAlignment = NSTextAlignmentCenter;
+    readySubtitle.textColor =
+        [UIColor colorWithRed:0.30
+                        green:0.88
+                         blue:1.0
+                        alpha:1.0];
+    readySubtitle.font =
+        [UIFont systemFontOfSize:12.0
+                         weight:UIFontWeightSemibold];
+    [readyCard addSubview:readySubtitle];
+
+    UIView *tapPrompt =
+        [[UIView alloc] initWithFrame:CGRectZero];
+    tapPrompt.translatesAutoresizingMaskIntoConstraints = NO;
+    tapPrompt.backgroundColor =
+        [UIColor colorWithRed:0.055
+                        green:0.135
+                         blue:0.215
+                        alpha:0.96];
+    tapPrompt.layer.cornerRadius = 16.0;
+    tapPrompt.layer.borderWidth = 1.0;
+    tapPrompt.layer.borderColor =
+        [UIColor colorWithRed:0.22
+                        green:0.72
+                         blue:0.92
+                        alpha:0.50].CGColor;
+    tapPrompt.userInteractionEnabled = NO;
+    [self.getReadyView addSubview:tapPrompt];
+
+    UIImageView *tapSymbol =
+        [[UIImageView alloc]
+            initWithImage:[UIImage systemImageNamed:@"hand.tap.fill"]];
+    tapSymbol.translatesAutoresizingMaskIntoConstraints = NO;
+    tapSymbol.tintColor =
+        [UIColor colorWithRed:1.0
+                        green:0.78
+                         blue:0.24
+                        alpha:1.0];
+    tapSymbol.contentMode = UIViewContentModeScaleAspectFit;
+    [tapPrompt addSubview:tapSymbol];
+
+    UILabel *tapTitle =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    tapTitle.translatesAutoresizingMaskIntoConstraints = NO;
+    tapTitle.text = @"TAP TO FLY";
+    tapTitle.textAlignment = NSTextAlignmentCenter;
+    tapTitle.textColor = [UIColor whiteColor];
+    tapTitle.font =
+        [UIFont systemFontOfSize:15.0
+                         weight:UIFontWeightBold];
+    tapTitle.adjustsFontSizeToFitWidth = YES;
+    tapTitle.minimumScaleFactor = 0.8;
+    [tapPrompt addSubview:tapTitle];
+
+    UILabel *tapDetail =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    tapDetail.translatesAutoresizingMaskIntoConstraints = NO;
+    tapDetail.text = @"Find your rhythm.";
+    tapDetail.textAlignment = NSTextAlignmentCenter;
+    tapDetail.textColor =
+        [UIColor colorWithWhite:0.76 alpha:1.0];
+    tapDetail.font =
+        [UIFont systemFontOfSize:11.0
+                         weight:UIFontWeightMedium];
+    [tapPrompt addSubview:tapDetail];
 
     self.gameOverView = [[UIView alloc] initWithFrame:CGRectZero];
     self.gameOverView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -258,17 +352,53 @@
         [self.getReadyView.widthAnchor constraintLessThanOrEqualToAnchor:safeArea.widthAnchor],
         [self.getReadyView.heightAnchor constraintEqualToConstant:210.0],
 
-        [readyImage.topAnchor constraintEqualToAnchor:self.getReadyView.topAnchor],
-        [readyImage.centerXAnchor constraintEqualToAnchor:self.getReadyView.centerXAnchor],
-        [readyImage.widthAnchor constraintLessThanOrEqualToAnchor:self.getReadyView.widthAnchor],
-        [readyImage.widthAnchor constraintEqualToConstant:260.0],
-        [readyImage.heightAnchor constraintEqualToConstant:70.0],
+        [readyCard.topAnchor constraintEqualToAnchor:self.getReadyView.topAnchor],
+        [readyCard.centerXAnchor constraintEqualToAnchor:self.getReadyView.centerXAnchor],
+        [readyCard.widthAnchor constraintEqualToConstant:284.0],
+        [readyCard.widthAnchor constraintLessThanOrEqualToAnchor:self.getReadyView.widthAnchor],
+        [readyCard.heightAnchor constraintEqualToConstant:92.0],
 
-        [tapImage.topAnchor constraintEqualToAnchor:readyImage.bottomAnchor
-                                           constant:18.0],
-        [tapImage.centerXAnchor constraintEqualToAnchor:self.getReadyView.centerXAnchor],
-        [tapImage.widthAnchor constraintEqualToConstant:150.0],
-        [tapImage.heightAnchor constraintEqualToConstant:120.0],
+        [readyTitle.topAnchor constraintEqualToAnchor:readyCard.topAnchor
+                                             constant:15.0],
+        [readyTitle.leadingAnchor constraintEqualToAnchor:readyCard.leadingAnchor
+                                                  constant:16.0],
+        [readyTitle.trailingAnchor constraintEqualToAnchor:readyCard.trailingAnchor
+                                                   constant:-16.0],
+        [readyTitle.heightAnchor constraintEqualToConstant:38.0],
+
+        [readySubtitle.topAnchor constraintEqualToAnchor:readyTitle.bottomAnchor
+                                                constant:2.0],
+        [readySubtitle.leadingAnchor constraintEqualToAnchor:readyCard.leadingAnchor
+                                                     constant:16.0],
+        [readySubtitle.trailingAnchor constraintEqualToAnchor:readyCard.trailingAnchor
+                                                      constant:-16.0],
+        [readySubtitle.heightAnchor constraintEqualToConstant:18.0],
+
+        [tapPrompt.topAnchor constraintEqualToAnchor:readyCard.bottomAnchor
+                                            constant:14.0],
+        [tapPrompt.centerXAnchor constraintEqualToAnchor:self.getReadyView.centerXAnchor],
+        [tapPrompt.widthAnchor constraintEqualToConstant:220.0],
+        [tapPrompt.heightAnchor constraintEqualToConstant:82.0],
+
+        [tapSymbol.leadingAnchor constraintEqualToAnchor:tapPrompt.leadingAnchor
+                                                constant:18.0],
+        [tapSymbol.centerYAnchor constraintEqualToAnchor:tapPrompt.centerYAnchor],
+        [tapSymbol.widthAnchor constraintEqualToConstant:30.0],
+        [tapSymbol.heightAnchor constraintEqualToConstant:30.0],
+
+        [tapTitle.leadingAnchor constraintEqualToAnchor:tapSymbol.trailingAnchor
+                                               constant:12.0],
+        [tapTitle.trailingAnchor constraintEqualToAnchor:tapPrompt.trailingAnchor
+                                                 constant:-12.0],
+        [tapTitle.topAnchor constraintEqualToAnchor:tapPrompt.topAnchor
+                                           constant:17.0],
+        [tapTitle.heightAnchor constraintEqualToConstant:22.0],
+
+        [tapDetail.leadingAnchor constraintEqualToAnchor:tapTitle.leadingAnchor],
+        [tapDetail.trailingAnchor constraintEqualToAnchor:tapTitle.trailingAnchor],
+        [tapDetail.topAnchor constraintEqualToAnchor:tapTitle.bottomAnchor
+                                            constant:2.0],
+        [tapDetail.heightAnchor constraintEqualToConstant:18.0],
 
         [self.gameOverView.centerXAnchor constraintEqualToAnchor:safeArea.centerXAnchor],
         [self.gameOverView.centerYAnchor constraintEqualToAnchor:safeArea.centerYAnchor],
