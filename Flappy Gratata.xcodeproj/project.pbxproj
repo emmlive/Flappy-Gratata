@@ -55,6 +55,9 @@
 		CEE995ED18E604D500248B08 /* PointSound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CEE995EA18E604D500248B08 /* PointSound.mp3 */; };
 		CEE995EF18E6055900248B08 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEE995EE18E6055900248B08 /* AudioToolbox.framework */; };
 		CEE995F318E6064C00248B08 /* appController.m in Sources */ = {isa = PBXBuildFile; fileRef = CEE995F218E6064C00248B08 /* appController.m */; };
+		E09B21F276F03B85FD92DDE8 /* bird_gold_1@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 86BEBDD92CD798C10E1B04D2 /* bird_gold_1@2x.png */; };
+		32DB66E680BDA7DF97371923 /* bird_gold_2@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 58DF0204FF02168BAE4B4A9D /* bird_gold_2@2x.png */; };
+		D6C021A74F0632D43843193E /* bird_gold_3@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = D1B4E75C4255609EE764D5A3 /* bird_gold_3@2x.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -133,6 +136,9 @@
 		CEE995EE18E6055900248B08 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		CEE995F118E6064C00248B08 /* appController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = appController.h; sourceTree = "<group>"; };
 		CEE995F218E6064C00248B08 /* appController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = appController.m; sourceTree = "<group>"; };
+		86BEBDD92CD798C10E1B04D2 /* bird_gold_1@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_gold_1@2x.png"; sourceTree = "<group>"; };
+		58DF0204FF02168BAE4B4A9D /* bird_gold_2@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_gold_2@2x.png"; sourceTree = "<group>"; };
+		D1B4E75C4255609EE764D5A3 /* bird_gold_3@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_gold_3@2x.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -166,6 +172,9 @@
 		8274FC3318A7F14000FEBCE7 /* Images */ = {
 			isa = PBXGroup;
 			children = (
+				86BEBDD92CD798C10E1B04D2 /* bird_gold_1@2x.png */,
+				58DF0204FF02168BAE4B4A9D /* bird_gold_2@2x.png */,
+				D1B4E75C4255609EE764D5A3 /* bird_gold_3@2x.png */,
 				CEBA89A218EBA8FC009B4979 /* twitteriCon@2x.png */,
 				CEBA89A318EBA8FC009B4979 /* gameCenterIcon@2x.png */,
 				823C184718B3F1BB00C9BD2F /* medal_silver@2x.png */,
@@ -450,6 +459,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E09B21F276F03B85FD92DDE8 /* bird_gold_1@2x.png in Resources */,
+				32DB66E680BDA7DF97371923 /* bird_gold_2@2x.png in Resources */,
+				D6C021A74F0632D43843193E /* bird_gold_3@2x.png in Resources */,
 				82457DBC18B2C3490042CF82 /* bird_2@2x.png in Resources */,
 				823C184D18B3F1BB00C9BD2F /* medal_silver@2x.png in Resources */,
 				821A756818AD618A00B376D5 /* Images.xcassets in Resources */,
