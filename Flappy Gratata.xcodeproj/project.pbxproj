@@ -70,6 +70,9 @@
 		62282C30FD3DBFC31822CC6D /* bird_academy_1@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 5750D02629C094A874603226 /* bird_academy_1@2x.png */; };
 		AC4C8B1C47A447997264A73A /* bird_academy_2@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = EB5F6F3A6D88ED446A299DA5 /* bird_academy_2@2x.png */; };
 		E851D8B0887684BDE9FD08A4 /* bird_academy_3@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 05FBC9550F561E220245765C /* bird_academy_3@2x.png */; };
+		B9F6407A6541C00A4F59D2CA /* bird_legendary_1@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 74662D5C78EAD90F2F890E46 /* bird_legendary_1@2x.png */; };
+		2B1817316A9557530B660FC3 /* bird_legendary_2@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 0BDBD72ABAEF67242D8E446C /* bird_legendary_2@2x.png */; };
+		E5BE0F1B30D003457F00B919 /* bird_legendary_3@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 9BB1B19E1FA58AE8371A6C05 /* bird_legendary_3@2x.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -163,6 +166,9 @@
 		5750D02629C094A874603226 /* bird_academy_1@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_academy_1@2x.png"; sourceTree = "<group>"; };
 		EB5F6F3A6D88ED446A299DA5 /* bird_academy_2@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_academy_2@2x.png"; sourceTree = "<group>"; };
 		05FBC9550F561E220245765C /* bird_academy_3@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_academy_3@2x.png"; sourceTree = "<group>"; };
+		74662D5C78EAD90F2F890E46 /* bird_legendary_1@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_legendary_1@2x.png"; sourceTree = "<group>"; };
+		0BDBD72ABAEF67242D8E446C /* bird_legendary_2@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_legendary_2@2x.png"; sourceTree = "<group>"; };
+		9BB1B19E1FA58AE8371A6C05 /* bird_legendary_3@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_legendary_3@2x.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -196,6 +202,9 @@
 		8274FC3318A7F14000FEBCE7 /* Images */ = {
 			isa = PBXGroup;
 			children = (
+				74662D5C78EAD90F2F890E46 /* bird_legendary_1@2x.png */,
+				0BDBD72ABAEF67242D8E446C /* bird_legendary_2@2x.png */,
+				9BB1B19E1FA58AE8371A6C05 /* bird_legendary_3@2x.png */,
 				5750D02629C094A874603226 /* bird_academy_1@2x.png */,
 				EB5F6F3A6D88ED446A299DA5 /* bird_academy_2@2x.png */,
 				05FBC9550F561E220245765C /* bird_academy_3@2x.png */,
@@ -495,6 +504,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B9F6407A6541C00A4F59D2CA /* bird_legendary_1@2x.png in Resources */,
+				2B1817316A9557530B660FC3 /* bird_legendary_2@2x.png in Resources */,
+				E5BE0F1B30D003457F00B919 /* bird_legendary_3@2x.png in Resources */,
 				62282C30FD3DBFC31822CC6D /* bird_academy_1@2x.png in Resources */,
 				AC4C8B1C47A447997264A73A /* bird_academy_2@2x.png in Resources */,
 				E851D8B0887684BDE9FD08A4 /* bird_academy_3@2x.png in Resources */,
