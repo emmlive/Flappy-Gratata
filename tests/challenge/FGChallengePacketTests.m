@@ -17,19 +17,25 @@
 
 #import "../../spritybird/Challenge/FGChallengePacket.h"
 
-static FGChallengePacket *FGChallengeTestPacket(uint64_t sequenceNumber)
+static FGChallengePacket *FGChallengeTestPacketWithSequenceNumberAndProgress(uint64_t sequenceNumber,
+                                                                               NSUInteger progressCheckpoint)
 {
     return [[FGChallengePacket alloc] initWithRaceIdentifier:@"race-501"
                                             playerIdentifier:@"player-alpha"
                                               sequenceNumber:sequenceNumber
                                                    timestamp:1700000000.25
-                                          progressCheckpoint:42
+                                          progressCheckpoint:progressCheckpoint
                                                        score:8
                                                        birdY:117.5
                                                   motionHint:-3.25
                                                        alive:YES
                                                 disconnected:NO
                                                  finalRecord:@{ @"finished": @YES, @"score": @8 }];
+}
+
+static FGChallengePacket *FGChallengeTestPacket(uint64_t sequenceNumber)
+{
+    return FGChallengeTestPacketWithSequenceNumberAndProgress(sequenceNumber, 42);
 }
 
 #if FGCHALLENGE_HAVE_XCTEST
@@ -97,6 +103,15 @@ static FGChallengePacket *FGChallengeTestPacket(uint64_t sequenceNumber)
 
     XCTAssertEqual([stale orderingAfterPacket:accepted], FGChallengePacketOrderingStale);
     XCTAssertFalse([stale shouldAcceptAfterPacket:accepted]);
+}
+
+- (void)testNewerSequenceCannotRewindVerifiedProgress
+{
+    FGChallengePacket *accepted = FGChallengeTestPacketWithSequenceNumberAndProgress(7, 42);
+    FGChallengePacket *rewinding = FGChallengeTestPacketWithSequenceNumberAndProgress(8, 41);
+
+    XCTAssertEqual([rewinding orderingAfterPacket:accepted], FGChallengePacketOrderingNewer);
+    XCTAssertFalse([rewinding shouldAcceptAfterPacket:accepted]);
 }
 
 @end
@@ -171,6 +186,15 @@ static void FGTestStaleSequenceIsNotAccepted(void)
     FGRequire(![stale shouldAcceptAfterPacket:accepted], @"stale sequence is ignored");
 }
 
+static void FGTestNewerSequenceCannotRewindVerifiedProgress(void)
+{
+    FGChallengePacket *accepted = FGChallengeTestPacketWithSequenceNumberAndProgress(7, 42);
+    FGChallengePacket *rewinding = FGChallengeTestPacketWithSequenceNumberAndProgress(8, 41);
+
+    FGRequire([rewinding orderingAfterPacket:accepted] == FGChallengePacketOrderingNewer, @"higher sequence is newer");
+    FGRequire(![rewinding shouldAcceptAfterPacket:accepted], @"newer packet cannot rewind verified progress");
+}
+
 int main(void)
 {
     @autoreleasepool {
@@ -179,6 +203,7 @@ int main(void)
         FGTestMissingRaceIdentifierFailsClosed();
         FGTestDuplicateSequenceIsNotAccepted();
         FGTestStaleSequenceIsNotAccepted();
+        FGTestNewerSequenceCannotRewindVerifiedProgress();
         puts("PASS: Live Challenge ordered peer packets");
     }
     return 0;

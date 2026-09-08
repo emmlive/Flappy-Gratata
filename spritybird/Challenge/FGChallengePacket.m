@@ -207,7 +207,10 @@ static const NSInteger FGChallengePacketVersion = 1;
 
 - (BOOL)shouldAcceptAfterPacket:(FGChallengePacket *)previousPacket
 {
-    return [self orderingAfterPacket:previousPacket] == FGChallengePacketOrderingNewer;
+    if ([self orderingAfterPacket:previousPacket] != FGChallengePacketOrderingNewer) {
+        return NO;
+    }
+    return previousPacket == nil || self.progressCheckpoint >= previousPacket.progressCheckpoint;
 }
 
 + (BOOL)presentString:(id)value
