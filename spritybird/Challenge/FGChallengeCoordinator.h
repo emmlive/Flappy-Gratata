@@ -48,7 +48,7 @@ typedef NS_ENUM(NSInteger, FGChallengeCoordinatorState) {
 - (BOOL)lockLocalContract:(FGChallengeRaceContract *)localContract
            remoteContract:(FGChallengeRaceContract *)remoteContract;
 - (BOOL)beginCountdownAtDate:(NSDate *)date;
-- (BOOL)beginRace;
+- (BOOL)beginRaceAtDate:(NSDate *)date;
 
 - (BOOL)recordLocalCrashAtDate:(NSDate *)date;
 - (BOOL)recordPeerCrashAtDate:(NSDate *)date;

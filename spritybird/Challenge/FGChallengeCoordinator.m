@@ -28,6 +28,8 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 @property (nonatomic, strong) NSDate *localDisconnectDate;
 @property (nonatomic, strong) NSDate *peerDisconnectDate;
 @property (nonatomic, strong) FGChallengePacket *lastPeerPacket;
+@property (nonatomic, assign) BOOL hasPendingForfeit;
+@property (nonatomic, assign) FGChallengeOutcome pendingForfeitOutcome;
 @end
 
 @implementation FGChallengeCoordinator
@@ -110,16 +112,20 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 
 - (BOOL)beginCountdownAtDate:(NSDate *)date
 {
-    if (self.state != FGChallengeCoordinatorStateContractLocked || date == nil) {
+    if (self.state != FGChallengeCoordinatorStateContractLocked ||
+        date == nil ||
+        ![date isEqualToDate:self.activeContract.synchronizedStartDate]) {
         return NO;
     }
     self.state = FGChallengeCoordinatorStateCountdown;
     return YES;
 }
 
-- (BOOL)beginRace
+- (BOOL)beginRaceAtDate:(NSDate *)date
 {
-    if (self.state != FGChallengeCoordinatorStateCountdown) {
+    if (self.state != FGChallengeCoordinatorStateCountdown ||
+        date == nil ||
+        ![date isEqualToDate:self.activeContract.synchronizedStartDate]) {
         return NO;
     }
     self.state = FGChallengeCoordinatorStateRacing;
@@ -166,21 +172,15 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 
 - (BOOL)advanceToDate:(NSDate *)date
 {
-    if (date == nil || (self.state != FGChallengeCoordinatorStateRacing && self.state != FGChallengeCoordinatorStateFinishWindow)) {
+    if (date == nil || ![self canHandleRaceConnectivityAtDate:date]) {
         return NO;
     }
     if ([self disconnectHasExceededGrace:self.localDisconnectDate atDate:date]) {
-        self.outcome = FGChallengeOutcomeLoss;
-        self.resultVerified = YES;
-        self.resultReason = FGChallengeCoordinatorReasonLocalForfeit;
-        self.state = FGChallengeCoordinatorStateVerifying;
+        [self enterForfeitWithOutcome:FGChallengeOutcomeLoss reason:FGChallengeCoordinatorReasonLocalForfeit];
         return YES;
     }
     if ([self disconnectHasExceededGrace:self.peerDisconnectDate atDate:date]) {
-        self.outcome = FGChallengeOutcomeWin;
-        self.resultVerified = YES;
-        self.resultReason = FGChallengeCoordinatorReasonRemoteForfeit;
-        self.state = FGChallengeCoordinatorStateVerifying;
+        [self enterForfeitWithOutcome:FGChallengeOutcomeWin reason:FGChallengeCoordinatorReasonRemoteForfeit];
         return YES;
     }
     if (self.state == FGChallengeCoordinatorStateFinishWindow && [date compare:self.finishWindowDeadline] != NSOrderedAscending) {
@@ -195,6 +195,17 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 {
     if (self.state != FGChallengeCoordinatorStateVerifying || self.activeContract == nil || ![self validOutcome:remoteDerivedOutcome]) {
         return NO;
+    }
+    if (self.hasPendingForfeit) {
+        // A recorded reconnect-grace expiry is an independently observed
+        // transport fact. Final packets may add diagnostics but cannot turn a
+        // forfeiting peer back into a winner or an unverified race.
+        self.outcome = self.pendingForfeitOutcome;
+        self.resultVerified = YES;
+        self.state = FGChallengeCoordinatorStateResults;
+        [self recordCompetitiveOutcome:self.outcome localRecord:localFinalRecord];
+        self.hasPendingForfeit = NO;
+        return YES;
     }
     FGChallengeVerifiedResult *result = [self.resultVerifier verifyLocalRecord:localFinalRecord remoteRecord:remoteFinalRecord contract:self.activeContract];
     if (!result.isVerified || ![self remoteOutcome:remoteDerivedOutcome agreesWithLocalOutcome:result.localOutcome]) {
@@ -236,6 +247,7 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
     self.localDisconnectDate = nil;
     self.peerDisconnectDate = nil;
     self.lastPeerPacket = nil;
+    self.hasPendingForfeit = NO;
     self.outcome = FGChallengeOutcomeVoid;
     self.resultVerified = NO;
     self.resultReason = nil;
@@ -307,7 +319,10 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
     (void)transport;
     (void)error;
     if (self.state == FGChallengeCoordinatorStateRacing || self.state == FGChallengeCoordinatorStateFinishWindow || self.state == FGChallengeCoordinatorStateVerifying) {
-        [self voidMatch];
+        // Local Game Center loss is one side of a disconnect. Preserve the
+        // contract and allow the normal five-second grace path to decide a
+        // forfeit; only two known disconnects void immediately.
+        [self recordLocalDisconnectedAtDate:[NSDate date]];
     } else if (self.state != FGChallengeCoordinatorStateIdle) {
         // Losing the session before countdown is a cancelled lobby, not a
         // competitive result or diagnostic entry.
@@ -350,7 +365,9 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 
 - (BOOL)canHandleRaceConnectivityAtDate:(NSDate *)date
 {
-    return date != nil && (self.state == FGChallengeCoordinatorStateRacing || self.state == FGChallengeCoordinatorStateFinishWindow);
+    return date != nil && (self.state == FGChallengeCoordinatorStateRacing ||
+                           self.state == FGChallengeCoordinatorStateFinishWindow ||
+                           self.state == FGChallengeCoordinatorStateVerifying);
 }
 
 - (BOOL)resolveBothDisconnectIfNeeded
@@ -368,8 +385,8 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 - (BOOL)reconnectLocal:(BOOL)local atDate:(NSDate *)date
 {
     NSDate *disconnectDate = local ? self.localDisconnectDate : self.peerDisconnectDate;
-    if (date == nil || disconnectDate == nil || (self.state != FGChallengeCoordinatorStateRacing && self.state != FGChallengeCoordinatorStateFinishWindow) ||
-        [date timeIntervalSinceDate:disconnectDate] > self.activeContract.reconnectGraceSeconds) {
+    if (date == nil || disconnectDate == nil || ![self canHandleRaceConnectivityAtDate:date] ||
+        [date timeIntervalSinceDate:disconnectDate] >= self.activeContract.reconnectGraceSeconds) {
         return NO;
     }
     if (local) {
@@ -382,7 +399,17 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 
 - (BOOL)disconnectHasExceededGrace:(NSDate *)disconnectDate atDate:(NSDate *)date
 {
-    return disconnectDate != nil && [date timeIntervalSinceDate:disconnectDate] > self.activeContract.reconnectGraceSeconds;
+    return disconnectDate != nil && [date timeIntervalSinceDate:disconnectDate] >= self.activeContract.reconnectGraceSeconds;
+}
+
+- (void)enterForfeitWithOutcome:(FGChallengeOutcome)outcome reason:(NSString *)reason
+{
+    self.pendingForfeitOutcome = outcome;
+    self.hasPendingForfeit = YES;
+    self.outcome = outcome;
+    self.resultVerified = YES;
+    self.resultReason = reason;
+    self.state = FGChallengeCoordinatorStateVerifying;
 }
 
 - (BOOL)contractHasExpectedParticipants:(FGChallengeRaceContract *)contract
