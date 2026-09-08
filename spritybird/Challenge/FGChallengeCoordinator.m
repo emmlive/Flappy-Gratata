@@ -12,6 +12,66 @@ static NSString * const FGChallengeCoordinatorReasonBothDisconnected = @"both-pl
 static NSString * const FGChallengeCoordinatorReasonLocalForfeit = @"local-reconnect-grace-expired";
 static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-reconnect-grace-expired";
 
+static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeContainers)
+{
+    if ([value isKindOfClass:[NSString class]] ||
+        [value isKindOfClass:[NSData class]] ||
+        [value isKindOfClass:[NSDate class]]) {
+        return [value copy];
+    }
+    if ([value isKindOfClass:[NSNumber class]] || value == [NSNull null]) {
+        return value;
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *dictionary = value;
+        NSMutableDictionary *snapshot;
+        BOOL valid = YES;
+
+        if ([activeContainers containsObject:dictionary]) {
+            return nil;
+        }
+        [activeContainers addObject:dictionary];
+        snapshot = [NSMutableDictionary dictionaryWithCapacity:dictionary.count];
+        for (id key in dictionary) {
+            id immutableValue;
+            if (![key isKindOfClass:[NSString class]]) {
+                valid = NO;
+                break;
+            }
+            immutableValue = FGChallengeImmutableFoundationSnapshot(dictionary[key], activeContainers);
+            if (immutableValue == nil) {
+                valid = NO;
+                break;
+            }
+            snapshot[[key copy]] = immutableValue;
+        }
+        [activeContainers removeObject:dictionary];
+        return valid ? [snapshot copy] : nil;
+    }
+    if ([value isKindOfClass:[NSArray class]]) {
+        NSArray *array = value;
+        NSMutableArray *snapshot;
+        BOOL valid = YES;
+
+        if ([activeContainers containsObject:array]) {
+            return nil;
+        }
+        [activeContainers addObject:array];
+        snapshot = [NSMutableArray arrayWithCapacity:array.count];
+        for (id item in array) {
+            id immutableItem = FGChallengeImmutableFoundationSnapshot(item, activeContainers);
+            if (immutableItem == nil) {
+                valid = NO;
+                break;
+            }
+            [snapshot addObject:immutableItem];
+        }
+        [activeContainers removeObject:array];
+        return valid ? [snapshot copy] : nil;
+    }
+    return nil;
+}
+
 @interface FGChallengeCoordinator () <FGChallengeTransportDelegate, FGChallengeRaceSceneEventDelegate>
 @property (nonatomic, strong) id<FGChallengeTransporting> transport;
 @property (nonatomic, strong) FGChallengeResultVerifier *resultVerifier;
@@ -201,25 +261,40 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
                            remoteDerivedOutcome:(FGChallengeOutcome)remoteDerivedOutcome
 {
     NSDictionary<NSString *, id> *authoritativeLocalFinalRecord;
+    NSDictionary<NSString *, id> *submittedLocalFinalRecord;
+    NSDictionary<NSString *, id> *remoteFinalRecordSnapshot;
+    FGChallengeVerifiedResult *result;
+    BOOL completingPendingForfeit;
 
     if (self.state != FGChallengeCoordinatorStateVerifying || self.activeContract == nil ||
-        self.latestLocalFinalRecord == nil || ![self validOutcome:remoteDerivedOutcome] ||
-        (localFinalRecord != nil && ![localFinalRecord isEqualToDictionary:self.latestLocalFinalRecord])) {
+        self.latestLocalFinalRecord == nil || ![self validOutcome:remoteDerivedOutcome]) {
         return NO;
     }
     authoritativeLocalFinalRecord = self.latestLocalFinalRecord;
-    if (self.hasPendingForfeit) {
-        // A recorded reconnect-grace expiry is an independently observed
-        // transport fact. Final packets may add diagnostics but cannot turn a
-        // forfeiting peer back into a winner or an unverified race.
-        self.outcome = self.pendingForfeitOutcome;
-        self.resultVerified = YES;
-        self.state = FGChallengeCoordinatorStateResults;
-        [self recordCompetitiveOutcome:self.outcome localRecord:authoritativeLocalFinalRecord];
-        self.hasPendingForfeit = NO;
-        return YES;
+    if (localFinalRecord != nil) {
+        submittedLocalFinalRecord = [self immutableSceneFinalRecordSnapshot:localFinalRecord];
+        if (submittedLocalFinalRecord == nil ||
+            ![submittedLocalFinalRecord isEqualToDictionary:authoritativeLocalFinalRecord]) {
+            return NO;
+        }
     }
-    FGChallengeVerifiedResult *result = [self.resultVerifier verifyLocalRecord:authoritativeLocalFinalRecord remoteRecord:remoteFinalRecord contract:self.activeContract];
+    remoteFinalRecordSnapshot = [self immutableSceneFinalRecordSnapshot:remoteFinalRecord];
+    if (remoteFinalRecordSnapshot == nil) {
+        return NO;
+    }
+    result = [self.resultVerifier verifyLocalRecord:authoritativeLocalFinalRecord
+                                      remoteRecord:remoteFinalRecordSnapshot
+                                          contract:self.activeContract];
+    completingPendingForfeit = self.hasPendingForfeit;
+    if (completingPendingForfeit &&
+        (!result.isVerified ||
+         !FGChallengeOutcomeIsCompetitive(result.localOutcome) ||
+         result.localOutcome != self.pendingForfeitOutcome ||
+         ![self pendingForfeitIsConfirmedByLocalRecord:authoritativeLocalFinalRecord
+                                          remoteRecord:remoteFinalRecordSnapshot] ||
+         ![self remoteOutcome:remoteDerivedOutcome agreesWithLocalOutcome:result.localOutcome])) {
+        return NO;
+    }
     if (!result.isVerified || ![self remoteOutcome:remoteDerivedOutcome agreesWithLocalOutcome:result.localOutcome]) {
         self.outcome = FGChallengeOutcomeUnverified;
         self.resultVerified = NO;
@@ -230,7 +305,9 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
     }
     self.outcome = result.localOutcome;
     self.resultVerified = YES;
-    self.resultReason = result.reason;
+    if (!completingPendingForfeit) {
+        self.resultReason = result.reason;
+    }
     if (result.localOutcome == FGChallengeOutcomeVoid) {
         self.state = FGChallengeCoordinatorStateVoided;
         [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:authoritativeLocalFinalRecord];
@@ -241,6 +318,7 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
         self.state = FGChallengeCoordinatorStateVoided;
         [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:authoritativeLocalFinalRecord];
     }
+    self.hasPendingForfeit = NO;
     return YES;
 }
 
@@ -301,23 +379,27 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 - (void)challengeRaceScene:(FGChallengeRaceScene *)raceScene
   didProduceLocalFinalRecord:(NSDictionary<NSString *,id> *)finalRecord
 {
+    NSDictionary<NSString *, id> *snapshot;
     NSNumber *progressCheckpoint;
     NSNumber *score;
 
     (void)raceScene;
-    if (self.latestLocalFinalRecord != nil || ![self canConsumeSceneEvent] ||
-        ![self sceneFinalRecordMatchesActiveContract:finalRecord]) {
+    if (self.latestLocalFinalRecord != nil || ![self canConsumeSceneEvent]) {
         return;
     }
-    progressCheckpoint = finalRecord[@"progressCheckpoint"];
-    score = finalRecord[@"score"];
+    snapshot = [self immutableSceneFinalRecordSnapshot:finalRecord];
+    if (![self sceneFinalRecordMatchesActiveContract:snapshot]) {
+        return;
+    }
+    progressCheckpoint = snapshot[@"progressCheckpoint"];
+    score = snapshot[@"score"];
     if (progressCheckpoint.unsignedIntegerValue < self.localProgressCheckpoint ||
         score.integerValue < self.localScore) {
         return;
     }
     self.localProgressCheckpoint = progressCheckpoint.unsignedIntegerValue;
     self.localScore = score.integerValue;
-    self.latestLocalFinalRecord = finalRecord;
+    self.latestLocalFinalRecord = snapshot;
 }
 
 #pragma mark - FGChallengeTransportDelegate
@@ -502,10 +584,42 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 {
     self.pendingForfeitOutcome = outcome;
     self.hasPendingForfeit = YES;
-    self.outcome = outcome;
-    self.resultVerified = YES;
+    self.outcome = FGChallengeOutcomeUnverified;
+    self.resultVerified = NO;
     self.resultReason = reason;
     self.state = FGChallengeCoordinatorStateVerifying;
+}
+
+- (NSDictionary<NSString *, id> *)immutableSceneFinalRecordSnapshot:(NSDictionary<NSString *, id> *)finalRecord
+{
+    id snapshot;
+
+    if (![finalRecord isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    snapshot = FGChallengeImmutableFoundationSnapshot(finalRecord,
+                                                       [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality]);
+    return [snapshot isKindOfClass:[NSDictionary class]] ? snapshot : nil;
+}
+
+- (BOOL)pendingForfeitIsConfirmedByLocalRecord:(NSDictionary<NSString *, id> *)localRecord
+                                  remoteRecord:(NSDictionary<NSString *, id> *)remoteRecord
+{
+    NSDictionary<NSString *, id> *forfeitingRecord;
+    NSDate *observedDisconnectDate;
+
+    if (self.pendingForfeitOutcome == FGChallengeOutcomeLoss) {
+        forfeitingRecord = localRecord;
+        observedDisconnectDate = self.localDisconnectDate;
+    } else if (self.pendingForfeitOutcome == FGChallengeOutcomeWin) {
+        forfeitingRecord = remoteRecord;
+        observedDisconnectDate = self.peerDisconnectDate;
+    } else {
+        return NO;
+    }
+    return observedDisconnectDate != nil &&
+           [forfeitingRecord[@"disconnected"] boolValue] &&
+           [forfeitingRecord[@"disconnectDurationSeconds"] doubleValue] > self.activeContract.reconnectGraceSeconds;
 }
 
 - (BOOL)contractHasExpectedParticipants:(FGChallengeRaceContract *)contract

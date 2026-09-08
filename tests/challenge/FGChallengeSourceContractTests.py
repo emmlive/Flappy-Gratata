@@ -141,10 +141,19 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("latestLocalFinalRecord", coordinator_header)
         self.assertIn("self.localProgressCheckpoint = progressCheckpoint", coordinator_implementation)
         self.assertIn("self.localScore = score", coordinator_implementation)
-        self.assertIn("self.latestLocalFinalRecord = finalRecord", coordinator_implementation)
+        self.assertIn("immutableSceneFinalRecordSnapshot", coordinator_implementation)
+        self.assertRegex(
+            coordinator_implementation,
+            r"self\.latestLocalFinalRecord\s*=\s*snapshot",
+        )
         self.assertIn("self.latestLocalFinalRecord != nil", coordinator_implementation)
         self.assertIn("authoritativeLocalFinalRecord", coordinator_implementation)
-        self.assertIn("remoteRecord:remoteFinalRecord contract:self.activeContract", coordinator_implementation)
+        self.assertRegex(
+            coordinator_implementation,
+            r"verifyLocalRecord:authoritativeLocalFinalRecord\s+"
+            r"remoteRecord:remoteFinalRecordSnapshot\s+"
+            r"contract:self\.activeContract",
+        )
 
         event_methods = re.search(
             r'#pragma mark - FGChallengeRaceSceneEventDelegate(?P<body>.*?)(?=^#pragma mark|\Z)',
