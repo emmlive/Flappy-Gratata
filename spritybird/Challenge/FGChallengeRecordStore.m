@@ -26,6 +26,7 @@ static NSString * const FGChallengeRecordStoreTimestampKey = @"timestamp";
 static NSString * const FGChallengeRecordStoreVerificationStateKey = @"verificationState";
 static NSString * const FGChallengeRecordStoreVerifiedState = @"verified";
 static NSUInteger const FGChallengeRecordStoreHistoryLimit = 50;
+static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
 
 @interface FGChallengeRecordStore ()
 
@@ -84,6 +85,12 @@ static NSUInteger const FGChallengeRecordStoreHistoryLimit = 50;
 
     FGChallengeOutcome outcome = [historyEntry[FGChallengeRecordStoreOutcomeKey] integerValue];
     if (!FGChallengeOutcomeIsCompetitive(outcome)) {
+        return NO;
+    }
+    if ([self hasRecordedVerifiedRace:historyEntry]) {
+        return YES;
+    }
+    if (![self canRecordCompetitiveOutcome:outcome historyEntry:historyEntry]) {
         return NO;
     }
 
@@ -176,11 +183,19 @@ static NSUInteger const FGChallengeRecordStoreHistoryLimit = 50;
                                    FGChallengeRecordStoreBestWinStreakKey,
                                    FGChallengeRecordStoreTotalLiveRacesKey ];
     for (NSString *key in keys) {
-        if (![self nonnegativeIntegerNumber:record[key]]) {
+        if (![self boundedNonnegativeIntegerNumber:record[key]]) {
             return NO;
         }
     }
-    return YES;
+    NSInteger wins = [record[FGChallengeRecordStoreWinsKey] integerValue];
+    NSInteger losses = [record[FGChallengeRecordStoreLossesKey] integerValue];
+    NSInteger draws = [record[FGChallengeRecordStoreDrawsKey] integerValue];
+    NSInteger currentWinStreak = [record[FGChallengeRecordStoreCurrentWinStreakKey] integerValue];
+    NSInteger bestWinStreak = [record[FGChallengeRecordStoreBestWinStreakKey] integerValue];
+    NSInteger totalLiveRaces = [record[FGChallengeRecordStoreTotalLiveRacesKey] integerValue];
+    return totalLiveRaces == wins + losses + draws &&
+           currentWinStreak <= bestWinStreak &&
+           bestWinStreak <= wins;
 }
 
 - (BOOL)validFriends:(NSDictionary *)friends
@@ -188,9 +203,9 @@ static NSUInteger const FGChallengeRecordStoreHistoryLimit = 50;
     for (id key in friends) {
         NSDictionary *record = friends[key];
         if (![self presentString:key] || ![record isKindOfClass:[NSDictionary class]] ||
-            ![self nonnegativeIntegerNumber:record[FGChallengeRecordStoreWinsKey]] ||
-            ![self nonnegativeIntegerNumber:record[FGChallengeRecordStoreLossesKey]] ||
-            ![self nonnegativeIntegerNumber:record[FGChallengeRecordStoreDrawsKey]]) {
+            ![self boundedNonnegativeIntegerNumber:record[FGChallengeRecordStoreWinsKey]] ||
+            ![self boundedNonnegativeIntegerNumber:record[FGChallengeRecordStoreLossesKey]] ||
+            ![self boundedNonnegativeIntegerNumber:record[FGChallengeRecordStoreDrawsKey]]) {
             return NO;
         }
     }
@@ -295,6 +310,35 @@ static NSUInteger const FGChallengeRecordStoreHistoryLimit = 50;
     }
 }
 
+- (BOOL)hasRecordedVerifiedRace:(NSDictionary<NSString *, id> *)historyEntry
+{
+    NSString *raceIdentifier = historyEntry[FGChallengeRecordStoreRaceIdentifierKey];
+    for (NSDictionary *existingEntry in _state[FGChallengeRecordStoreHistoryKey]) {
+        if ([existingEntry[FGChallengeRecordStoreVerificationStateKey] isEqualToString:FGChallengeRecordStoreVerifiedState] &&
+            [existingEntry[FGChallengeRecordStoreRaceIdentifierKey] isEqualToString:raceIdentifier]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+- (BOOL)canRecordCompetitiveOutcome:(FGChallengeOutcome)outcome
+                        historyEntry:(NSDictionary<NSString *, id> *)historyEntry
+{
+    NSDictionary *aggregate = _state[FGChallengeRecordStoreAggregateKey];
+    if ([aggregate[FGChallengeRecordStoreTotalLiveRacesKey] integerValue] >= FGChallengeRecordStoreMaximumCounter) {
+        return NO;
+    }
+    NSString *outcomeKey = outcome == FGChallengeOutcomeWin ? FGChallengeRecordStoreWinsKey :
+                          outcome == FGChallengeOutcomeLoss ? FGChallengeRecordStoreLossesKey :
+                          outcome == FGChallengeOutcomeDraw ? FGChallengeRecordStoreDrawsKey : nil;
+    if (outcomeKey == nil || [aggregate[outcomeKey] integerValue] >= FGChallengeRecordStoreMaximumCounter) {
+        return NO;
+    }
+    NSDictionary *friendRecord = _state[FGChallengeRecordStoreFriendsKey][historyEntry[FGChallengeRecordStoreOpponentIdentifierKey]];
+    return friendRecord == nil || [friendRecord[outcomeKey] integerValue] < FGChallengeRecordStoreMaximumCounter;
+}
+
 - (void)appendHistoryEntry:(NSDictionary<NSString *, id> *)entry
 {
     NSMutableArray *history = [_state[FGChallengeRecordStoreHistoryKey] mutableCopy];
@@ -337,6 +381,11 @@ static NSUInteger const FGChallengeRecordStoreHistoryLimit = 50;
         return NO;
     }
     return [(NSNumber *)value longLongValue] >= 0;
+}
+
+- (BOOL)boundedNonnegativeIntegerNumber:(id)value
+{
+    return [self nonnegativeIntegerNumber:value] && [(NSNumber *)value longLongValue] <= FGChallengeRecordStoreMaximumCounter;
 }
 
 - (BOOL)finiteNonnegativeNumber:(id)value

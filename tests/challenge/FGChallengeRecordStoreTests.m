@@ -141,6 +141,36 @@ static FGChallengeRecordStore *FGChallengeFreshStore(NSUserDefaults *defaults)
     XCTAssertEqual(reloaded.recentRaceHistory.count, 1);
 }
 
+- (void)testDuplicateVerifiedRaceDoesNotAlterTotalsOrHistoryTwice
+{
+    FGChallengeRecordStore *store = FGChallengeFreshStore([[NSUserDefaults alloc] initWithSuiteName:[[NSUUID UUID] UUIDString]]);
+    NSDictionary *match = FGChallengeVerifiedMatch(@"race-once", @"friend-a", FGChallengeOutcomeWin);
+
+    XCTAssertTrue([store recordVerifiedMatch:match]);
+    XCTAssertTrue([store recordVerifiedMatch:match]);
+
+    XCTAssertEqual([store.aggregateRecord[@"wins"] integerValue], 1);
+    XCTAssertEqual([store.aggregateRecord[@"totalLiveRaces"] integerValue], 1);
+    XCTAssertEqual(store.recentRaceHistory.count, 1);
+}
+
+- (void)testImpossiblePersistedTotalsFallBackToSafeDefaults
+{
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:[[NSUUID UUID] UUIDString]];
+    [defaults setObject:@{ @"schemaVersion": @(FGChallengeRecordStoreSchemaVersion),
+                           @"aggregate": @{ @"wins": @1, @"losses": @0, @"draws": @0,
+                                            @"currentWinStreak": @1, @"bestWinStreak": @1,
+                                            @"totalLiveRaces": @2 },
+                           @"friends": @{},
+                           @"history": @[] }
+                 forKey:FGChallengeRecordStoreTestKey];
+
+    FGChallengeRecordStore *store = [[FGChallengeRecordStore alloc] initWithUserDefaults:defaults storageKey:FGChallengeRecordStoreTestKey];
+
+    XCTAssertEqual([store.aggregateRecord[@"totalLiveRaces"] integerValue], 0);
+    XCTAssertEqual([store.aggregateRecord[@"wins"] integerValue], 0);
+}
+
 @end
 
 #else
@@ -237,6 +267,32 @@ static void FGTestPersistedRecordsReloadFromOnDeviceStorage(void)
     FGRequire(reloaded.recentRaceHistory.count == 1, @"persisted history reloads");
 }
 
+static void FGTestDuplicateVerifiedRaceDoesNotAlterTotalsOrHistoryTwice(void)
+{
+    FGChallengeRecordStore *store = FGChallengeFreshStore(FGChallengeTestDefaults());
+    NSDictionary *match = FGChallengeVerifiedMatch(@"race-once", @"friend-a", FGChallengeOutcomeWin);
+    FGRequire([store recordVerifiedMatch:match], @"first verified race is recorded");
+    FGRequire([store recordVerifiedMatch:match], @"identical verified callback is accepted idempotently");
+    FGRequire([store.aggregateRecord[@"wins"] integerValue] == 1, @"duplicate verified race does not increment wins");
+    FGRequire([store.aggregateRecord[@"totalLiveRaces"] integerValue] == 1, @"duplicate verified race does not increment total");
+    FGRequire(store.recentRaceHistory.count == 1, @"duplicate verified race does not append history");
+}
+
+static void FGTestImpossiblePersistedTotalsFallBackToSafeDefaults(void)
+{
+    NSUserDefaults *defaults = FGChallengeTestDefaults();
+    [defaults setObject:@{ @"schemaVersion": @(FGChallengeRecordStoreSchemaVersion),
+                           @"aggregate": @{ @"wins": @1, @"losses": @0, @"draws": @0,
+                                            @"currentWinStreak": @1, @"bestWinStreak": @1,
+                                            @"totalLiveRaces": @2 },
+                           @"friends": @{},
+                           @"history": @[] }
+                 forKey:FGChallengeRecordStoreTestKey];
+    FGChallengeRecordStore *store = [[FGChallengeRecordStore alloc] initWithUserDefaults:defaults storageKey:FGChallengeRecordStoreTestKey];
+    FGRequire([store.aggregateRecord[@"totalLiveRaces"] integerValue] == 0, @"impossible totals reset safely");
+    FGRequire([store.aggregateRecord[@"wins"] integerValue] == 0, @"impossible wins reset safely");
+}
+
 int main(void)
 {
     @autoreleasepool {
@@ -248,6 +304,8 @@ int main(void)
         FGTestCorruptStorageReturnsSafeDefaults();
         FGTestSchemaVersionIsPersisted();
         FGTestPersistedRecordsReloadFromOnDeviceStorage();
+        FGTestDuplicateVerifiedRaceDoesNotAlterTotalsOrHistoryTwice();
+        FGTestImpossiblePersistedTotalsFallBackToSafeDefaults();
         puts("PASS: Live Challenge local multiplayer records");
     }
     return 0;
