@@ -16,6 +16,7 @@
 #import "../../spritybird/Challenge/FGChallengeCoordinator.h"
 #import "../../spritybird/Challenge/FGChallengePacket.h"
 #import "../../spritybird/Challenge/FGChallengeRaceContract.h"
+#import "../../spritybird/Challenge/FGChallengeRaceScene.h"
 #import "../../spritybird/Challenge/FGChallengeRecordStore.h"
 #import "../../spritybird/Challenge/FGChallengeResultVerifier.h"
 #import "../../spritybird/Challenge/FGChallengeTransport.h"
@@ -204,6 +205,27 @@ static BOOL FGCoordinatorPrepareRace(FGChallengeCoordinator *coordinator, FGChal
     XCTAssertEqualObjects(coordinator.activeContract.raceIdentifier, @"race-rematch");
 }
 
+- (void)testSceneEventsReachCoordinatorWithoutVerifyingOrRecording
+{
+    FGChallengeCoordinator *coordinator = FGCoordinator(NULL);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-scene-events");
+    NSDictionary<NSString *, id> *finalRecord = FGCoordinatorFinalRecord(@"race-scene-events", @"player-alpha", 7, 5, NO, 0);
+    id<FGChallengeRaceSceneEventDelegate> eventSink;
+
+    XCTAssertTrue(FGCoordinatorPrepareRace(coordinator, contract));
+    eventSink = (id<FGChallengeRaceSceneEventDelegate>)coordinator;
+    [eventSink challengeRaceScene:nil didUpdateLocalProgressCheckpoint:7 score:5];
+    XCTAssertEqual(coordinator.localProgressCheckpoint, 7u);
+    XCTAssertEqual(coordinator.localScore, 5);
+    XCTAssertNil(coordinator.latestLocalFinalRecord);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateRacing);
+
+    XCTAssertTrue([coordinator recordLocalCrashAtDate:[NSDate dateWithTimeIntervalSince1970:500]]);
+    [eventSink challengeRaceScene:nil didProduceLocalFinalRecord:finalRecord];
+    XCTAssertEqualObjects(coordinator.latestLocalFinalRecord, finalRecord);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateFinishWindow);
+}
+
 @end
 
 #else
@@ -215,6 +237,7 @@ static void FGTestWindowAndGrace(void) { FGChallengeCoordinator *c = FGCoordinat
 static void FGTestDisconnectOutcomes(void) { FGChallengeCoordinator *c = FGCoordinator(NULL); NSDate *disconnect = [NSDate dateWithTimeIntervalSince1970:300]; FGRequire(FGCoordinatorPrepareRace(c, FGCoordinatorContract(@"forfeit")) && [c recordPeerDisconnectedAtDate:disconnect] && [c advanceToDate:[disconnect dateByAddingTimeInterval:5.0]], @"reconnect deadline is processed as forfeit"); FGRequire(c.state == FGChallengeCoordinatorStateVerifying && c.outcome == FGChallengeOutcomeWin, @"peer timeout forfeits"); FGRequire([c completeVerificationWithLocalFinalRecord:FGCoordinatorFinalRecord(@"forfeit", @"player-alpha", 1, 1, NO, 0) remoteFinalRecord:FGCoordinatorFinalRecord(@"forfeit", @"player-bravo", 9, 9, NO, 0) remoteDerivedOutcome:FGChallengeOutcomeWin] && c.state == FGChallengeCoordinatorStateResults && c.outcome == FGChallengeOutcomeWin, @"contradictory records cannot replace grace forfeit"); c = FGCoordinator(NULL); FGRequire(FGCoordinatorPrepareRace(c, FGCoordinatorContract(@"void")) && [c recordLocalDisconnectedAtDate:disconnect] && [c recordPeerDisconnectedAtDate:disconnect], @"both disconnect accepted"); FGRequire(c.state == FGChallengeCoordinatorStateVoided && c.outcome == FGChallengeOutcomeVoid, @"both disconnect voids"); }
 static void FGTestBoundaryAndTransportUnavailable(void) { FGChallengeCoordinatorFakeTransport *transport; FGChallengeCoordinator *c = FGCoordinator(&transport); NSDate *disconnect = [NSDate dateWithTimeIntervalSince1970:600]; FGRequire(FGCoordinatorPrepareRace(c, FGCoordinatorContract(@"boundary")) && [c recordPeerDisconnectedAtDate:disconnect] && ![c recordPeerReconnectedAtDate:[disconnect dateByAddingTimeInterval:5.0]] && [c advanceToDate:[disconnect dateByAddingTimeInterval:5.0]], @"grace deadline is expired, not inside grace"); c = FGCoordinator(&transport); FGRequire(FGCoordinatorPrepareRace(c, FGCoordinatorContract(@"transport")), @"transport race prepared"); [transport.delegate challengeTransportDidBecomeUnavailable:(FGChallengeTransport *)transport error:nil]; FGRequire(c.state == FGChallengeCoordinatorStateRacing && [c recordPeerDisconnectedAtDate:[NSDate date]], @"transport unavailable enters normal disconnect grace"); FGRequire(c.state == FGChallengeCoordinatorStateVoided, @"both known disconnects void"); }
 static void FGTestDisagreementAndRematch(void) { FGChallengeCoordinator *c = FGCoordinator(NULL); FGRequire(FGCoordinatorPrepareRace(c, FGCoordinatorContract(@"result")), @"race prepared"); NSDate *crash = [NSDate dateWithTimeIntervalSince1970:400]; FGRequire([c recordLocalCrashAtDate:crash] && [c advanceToDate:[crash dateByAddingTimeInterval:3]], @"race reaches verification"); FGRequire([c completeVerificationWithLocalFinalRecord:FGCoordinatorFinalRecord(@"result", @"player-alpha", 12, 4, NO, 0) remoteFinalRecord:FGCoordinatorFinalRecord(@"result", @"player-bravo", 11, 3, NO, 0) remoteDerivedOutcome:FGChallengeOutcomeWin], @"verification completes"); FGRequire(c.state == FGChallengeCoordinatorStateVoided && c.outcome == FGChallengeOutcomeUnverified, @"disagreement becomes unverified void"); FGRequire([c requestRematchWithContract:FGCoordinatorContract(@"rematch")] && c.state == FGChallengeCoordinatorStateLobby && [c.activeContract.raceIdentifier isEqualToString:@"rematch"], @"rematch creates fresh lobby contract"); }
-int main(void) { @autoreleasepool { FGTestReadiness(); FGTestMismatch(); FGTestWindowAndGrace(); FGTestDisconnectOutcomes(); FGTestBoundaryAndTransportUnavailable(); FGTestDisagreementAndRematch(); puts("PASS: Live Challenge coordinator"); } return 0; }
+static void FGTestSceneEventIntake(void) { FGChallengeCoordinator *c = FGCoordinator(NULL); FGChallengeRaceContract *contract = FGCoordinatorContract(@"scene-events"); NSDictionary<NSString *, id> *finalRecord = FGCoordinatorFinalRecord(@"scene-events", @"player-alpha", 7, 5, NO, 0); id<FGChallengeRaceSceneEventDelegate> sink; FGRequire(FGCoordinatorPrepareRace(c, contract), @"scene event race prepared"); sink = (id<FGChallengeRaceSceneEventDelegate>)c; [sink challengeRaceScene:nil didUpdateLocalProgressCheckpoint:7 score:5]; FGRequire(c.localProgressCheckpoint == 7 && c.localScore == 5 && c.latestLocalFinalRecord == nil, @"progress and score reach coordinator without final result"); FGRequire(c.state == FGChallengeCoordinatorStateRacing, @"progress intake does not decide lifecycle"); FGRequire([c recordLocalCrashAtDate:[NSDate dateWithTimeIntervalSince1970:500]], @"local crash transitions coordinator"); [sink challengeRaceScene:nil didProduceLocalFinalRecord:finalRecord]; FGRequire([c.latestLocalFinalRecord isEqualToDictionary:finalRecord] && c.state == FGChallengeCoordinatorStateFinishWindow, @"final record reaches coordinator without verification or record mutation"); }
+int main(void) { @autoreleasepool { FGTestReadiness(); FGTestMismatch(); FGTestWindowAndGrace(); FGTestDisconnectOutcomes(); FGTestBoundaryAndTransportUnavailable(); FGTestDisagreementAndRematch(); FGTestSceneEventIntake(); puts("PASS: Live Challenge coordinator"); } return 0; }
 
 #endif

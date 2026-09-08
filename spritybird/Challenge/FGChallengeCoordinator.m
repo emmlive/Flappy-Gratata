@@ -2,6 +2,7 @@
 
 #import "FGChallengePacket.h"
 #import "FGChallengeRaceContract.h"
+#import "FGChallengeRaceScene.h"
 #import "FGChallengeRecordStore.h"
 #import "FGChallengeResultVerifier.h"
 #import "FGChallengeTransport.h"
@@ -11,7 +12,7 @@ static NSString * const FGChallengeCoordinatorReasonBothDisconnected = @"both-pl
 static NSString * const FGChallengeCoordinatorReasonLocalForfeit = @"local-reconnect-grace-expired";
 static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-reconnect-grace-expired";
 
-@interface FGChallengeCoordinator () <FGChallengeTransportDelegate>
+@interface FGChallengeCoordinator () <FGChallengeTransportDelegate, FGChallengeRaceSceneEventDelegate>
 @property (nonatomic, strong) id<FGChallengeTransporting> transport;
 @property (nonatomic, strong) FGChallengeResultVerifier *resultVerifier;
 @property (nonatomic, strong) FGChallengeRecordStore *recordStore;
@@ -30,6 +31,9 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
 @property (nonatomic, strong) FGChallengePacket *lastPeerPacket;
 @property (nonatomic, assign) BOOL hasPendingForfeit;
 @property (nonatomic, assign) FGChallengeOutcome pendingForfeitOutcome;
+@property (nonatomic, assign, readwrite) NSUInteger localProgressCheckpoint;
+@property (nonatomic, assign, readwrite) NSInteger localScore;
+@property (nonatomic, copy, readwrite) NSDictionary<NSString *, id> *latestLocalFinalRecord;
 @end
 
 @implementation FGChallengeCoordinator
@@ -106,6 +110,9 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
         return NO;
     }
     self.activeContract = localContract;
+    self.localProgressCheckpoint = 0;
+    self.localScore = 0;
+    self.latestLocalFinalRecord = nil;
     self.state = FGChallengeCoordinatorStateContractLocked;
     return YES;
 }
@@ -251,6 +258,9 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
     self.outcome = FGChallengeOutcomeVoid;
     self.resultVerified = NO;
     self.resultReason = nil;
+    self.localProgressCheckpoint = 0;
+    self.localScore = 0;
+    self.latestLocalFinalRecord = nil;
     self.state = FGChallengeCoordinatorStateLobby;
     return YES;
 }
@@ -266,6 +276,42 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
     self.state = FGChallengeCoordinatorStateVoided;
     [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:nil];
     return YES;
+}
+
+#pragma mark - FGChallengeRaceSceneEventDelegate
+
+- (void)challengeRaceScene:(FGChallengeRaceScene *)raceScene
+ didUpdateLocalProgressCheckpoint:(NSUInteger)progressCheckpoint
+                      score:(NSInteger)score
+{
+    (void)raceScene;
+    if (![self canConsumeSceneEvent] || score < 0 || (NSUInteger)score > progressCheckpoint ||
+        progressCheckpoint < self.localProgressCheckpoint || score < self.localScore) {
+        return;
+    }
+    self.localProgressCheckpoint = progressCheckpoint;
+    self.localScore = score;
+}
+
+- (void)challengeRaceScene:(FGChallengeRaceScene *)raceScene
+  didProduceLocalFinalRecord:(NSDictionary<NSString *,id> *)finalRecord
+{
+    NSNumber *progressCheckpoint;
+    NSNumber *score;
+
+    (void)raceScene;
+    if (![self canConsumeSceneEvent] || ![self sceneFinalRecordMatchesActiveContract:finalRecord]) {
+        return;
+    }
+    progressCheckpoint = finalRecord[@"progressCheckpoint"];
+    score = finalRecord[@"score"];
+    if (progressCheckpoint.unsignedIntegerValue < self.localProgressCheckpoint ||
+        score.integerValue < self.localScore) {
+        return;
+    }
+    self.localProgressCheckpoint = progressCheckpoint.unsignedIntegerValue;
+    self.localScore = score.integerValue;
+    self.latestLocalFinalRecord = finalRecord;
 }
 
 #pragma mark - FGChallengeTransportDelegate
@@ -351,6 +397,50 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
         self.state = FGChallengeCoordinatorStateFinishWindow;
     }
     return YES;
+}
+
+- (BOOL)canConsumeSceneEvent
+{
+    return self.activeContract != nil &&
+           (self.state == FGChallengeCoordinatorStateRacing ||
+            self.state == FGChallengeCoordinatorStateFinishWindow ||
+            self.state == FGChallengeCoordinatorStateVerifying);
+}
+
+- (BOOL)sceneFinalRecordMatchesActiveContract:(NSDictionary<NSString *, id> *)finalRecord
+{
+    NSString *raceIdentifier;
+    NSString *playerIdentifier;
+    NSString *compatibilityFingerprint;
+    NSNumber *progressCheckpoint;
+    NSNumber *score;
+    NSNumber *crashed;
+    NSNumber *disconnected;
+    NSNumber *disconnectDurationSeconds;
+
+    if (![finalRecord isKindOfClass:[NSDictionary class]]) {
+        return NO;
+    }
+    raceIdentifier = finalRecord[@"raceIdentifier"];
+    playerIdentifier = finalRecord[@"playerIdentifier"];
+    compatibilityFingerprint = finalRecord[@"compatibilityFingerprint"];
+    progressCheckpoint = finalRecord[@"progressCheckpoint"];
+    score = finalRecord[@"score"];
+    crashed = finalRecord[@"crashed"];
+    disconnected = finalRecord[@"disconnected"];
+    disconnectDurationSeconds = finalRecord[@"disconnectDurationSeconds"];
+    return [raceIdentifier isKindOfClass:[NSString class]] &&
+           [playerIdentifier isKindOfClass:[NSString class]] &&
+           [compatibilityFingerprint isKindOfClass:[NSString class]] &&
+           [progressCheckpoint isKindOfClass:[NSNumber class]] && progressCheckpoint.integerValue >= 0 &&
+           [score isKindOfClass:[NSNumber class]] && score.integerValue >= 0 &&
+           [crashed isKindOfClass:[NSNumber class]] &&
+           [disconnected isKindOfClass:[NSNumber class]] &&
+           [disconnectDurationSeconds isKindOfClass:[NSNumber class]] && disconnectDurationSeconds.doubleValue >= 0.0 &&
+           score.unsignedIntegerValue <= progressCheckpoint.unsignedIntegerValue &&
+           [raceIdentifier isEqualToString:self.activeContract.raceIdentifier] &&
+           [playerIdentifier isEqualToString:self.localPlayerIdentifier] &&
+           [compatibilityFingerprint isEqualToString:self.activeContract.compatibilityFingerprint];
 }
 
 - (BOOL)canChangeReadiness

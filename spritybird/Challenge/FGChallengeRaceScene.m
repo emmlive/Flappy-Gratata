@@ -63,6 +63,9 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
         _raceContract = raceContract;
         _coordinator = coordinator;
         _ghostRenderer = ghostRenderer;
+        if ([coordinator conformsToProtocol:@protocol(FGChallengeRaceSceneEventDelegate)]) {
+            _eventDelegate = (id<FGChallengeRaceSceneEventDelegate>)coordinator;
+        }
         _scoredObstacleIndexes = [NSMutableIndexSet indexSet];
         self.physicsWorld.gravity = CGVectorMake(0.0, FGChallengeRaceSceneGravity);
         self.physicsWorld.contactDelegate = self;

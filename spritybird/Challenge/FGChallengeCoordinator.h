@@ -34,6 +34,11 @@ typedef NS_ENUM(NSInteger, FGChallengeCoordinatorState) {
 @property (nonatomic, assign, readonly) FGChallengeOutcome outcome;
 @property (nonatomic, assign, readonly, getter=isResultVerified) BOOL resultVerified;
 @property (nonatomic, copy, readonly) NSString *resultReason;
+// Scene observations are retained for the coordinator's later verification
+// step. They are not, by themselves, a result or a record mutation.
+@property (nonatomic, assign, readonly) NSUInteger localProgressCheckpoint;
+@property (nonatomic, assign, readonly) NSInteger localScore;
+@property (nonatomic, copy, readonly) NSDictionary<NSString *, id> *latestLocalFinalRecord;
 
 - (instancetype)initWithTransport:(id<FGChallengeTransporting>)transport
                     resultVerifier:(FGChallengeResultVerifier *)resultVerifier

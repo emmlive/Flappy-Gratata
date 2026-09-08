@@ -11,6 +11,8 @@ HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeGhostRenderer.h"
 IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeGhostRenderer.m"
 RACE_SCENE_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeRaceScene.h"
 RACE_SCENE_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeRaceScene.m"
+COORDINATOR_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeCoordinator.h"
+COORDINATOR_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeCoordinator.m"
 PROTECTED_CLASSIC_HASHES = {
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "50c6f4542d0a849f1122dcee726280bd867b049fd651dbd8b5e0df4ade2bc4f9",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
@@ -94,6 +96,7 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("self.localProgressCheckpoint += 1", implementation)
         self.assertIn("self.localScore += 1", implementation)
         self.assertIn("notifyDelegateOfLocalFinalRecord", implementation)
+        self.assertIn("_eventDelegate = (id<FGChallengeRaceSceneEventDelegate>)coordinator", implementation)
         self.assertNotRegex(source, r'FGChallengeRecordStore|FGChallengeResultVerifier|FGChallengeTransport')
 
         packet_handler = re.search(
@@ -125,6 +128,28 @@ class FGChallengeSourceContractTests(unittest.TestCase):
 
         for protected_file, expected_hash in PROTECTED_CLASSIC_HASHES.items():
             self.assertEqual(expected_hash, hashlib.sha256(protected_file.read_bytes()).hexdigest())
+
+    def test_coordinator_retains_scene_events_without_verifying_or_recording_them(self):
+        """Catches an unconsumed scene seam or scene-event side effects outside policy."""
+        coordinator_header = COORDINATOR_HEADER.read_text(encoding="utf-8")
+        coordinator_implementation = COORDINATOR_IMPLEMENTATION.read_text(encoding="utf-8")
+
+        self.assertIn('"FGChallengeRaceScene.h"', coordinator_implementation)
+        self.assertIn("FGChallengeRaceSceneEventDelegate", coordinator_implementation)
+        self.assertIn("localProgressCheckpoint", coordinator_header)
+        self.assertIn("localScore", coordinator_header)
+        self.assertIn("latestLocalFinalRecord", coordinator_header)
+        self.assertIn("self.localProgressCheckpoint = progressCheckpoint", coordinator_implementation)
+        self.assertIn("self.localScore = score", coordinator_implementation)
+        self.assertIn("self.latestLocalFinalRecord = finalRecord", coordinator_implementation)
+
+        event_methods = re.search(
+            r'#pragma mark - FGChallengeRaceSceneEventDelegate(?P<body>.*?)(?=^#pragma mark|\Z)',
+            coordinator_implementation,
+            re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(event_methods, "coordinator must own the scene event intake")
+        self.assertNotRegex(event_methods.group("body"), r'recordVerifiedMatch|recordVoidDiagnostic|verifyLocalRecord|completeVerification')
 
 
 if __name__ == "__main__":
