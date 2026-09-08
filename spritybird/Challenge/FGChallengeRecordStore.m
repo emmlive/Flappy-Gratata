@@ -3,13 +3,14 @@
 #import <math.h>
 #import <string.h>
 
-NSInteger const FGChallengeRecordStoreSchemaVersion = 1;
+NSInteger const FGChallengeRecordStoreSchemaVersion = 2;
 
 static NSString * const FGChallengeRecordStoreDefaultStorageKey = @"FGChallengeRecordStore";
 static NSString * const FGChallengeRecordStoreSchemaVersionKey = @"schemaVersion";
 static NSString * const FGChallengeRecordStoreAggregateKey = @"aggregate";
 static NSString * const FGChallengeRecordStoreFriendsKey = @"friends";
 static NSString * const FGChallengeRecordStoreHistoryKey = @"history";
+static NSString * const FGChallengeRecordStoreProcessedRaceIdentifiersKey = @"processedRaceIdentifiers";
 static NSString * const FGChallengeRecordStoreWinsKey = @"wins";
 static NSString * const FGChallengeRecordStoreLossesKey = @"losses";
 static NSString * const FGChallengeRecordStoreDrawsKey = @"draws";
@@ -26,7 +27,10 @@ static NSString * const FGChallengeRecordStoreTimestampKey = @"timestamp";
 static NSString * const FGChallengeRecordStoreVerificationStateKey = @"verificationState";
 static NSString * const FGChallengeRecordStoreVerifiedState = @"verified";
 static NSUInteger const FGChallengeRecordStoreHistoryLimit = 50;
+/* Replay protection intentionally outlives the display-only recent history. */
+static NSUInteger const FGChallengeRecordStoreProcessedRaceIdentifierLimit = 200;
 static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
+static NSInteger const FGChallengeRecordStoreLegacySchemaVersion = 1;
 
 @interface FGChallengeRecordStore ()
 
@@ -87,7 +91,7 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
     if (!FGChallengeOutcomeIsCompetitive(outcome)) {
         return NO;
     }
-    if ([self hasRecordedVerifiedRace:historyEntry]) {
+    if ([self hasProcessedRaceIdentifier:historyEntry[FGChallengeRecordStoreRaceIdentifierKey]]) {
         return YES;
     }
     if (![self canRecordCompetitiveOutcome:outcome historyEntry:historyEntry]) {
@@ -108,6 +112,7 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
     _state[FGChallengeRecordStoreAggregateKey] = aggregate;
     _state[FGChallengeRecordStoreFriendsKey] = friends;
     [self appendHistoryEntry:historyEntry];
+    [self appendProcessedRaceIdentifier:historyEntry[FGChallengeRecordStoreRaceIdentifierKey]];
     [self persist];
     return YES;
 }
@@ -134,7 +139,8 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
     return [@{ FGChallengeRecordStoreSchemaVersionKey: @(FGChallengeRecordStoreSchemaVersion),
                FGChallengeRecordStoreAggregateKey: [self emptyAggregateRecord],
                FGChallengeRecordStoreFriendsKey: @{},
-               FGChallengeRecordStoreHistoryKey: @[] } mutableCopy];
+               FGChallengeRecordStoreHistoryKey: @[],
+               FGChallengeRecordStoreProcessedRaceIdentifiersKey: @[] } mutableCopy];
 }
 
 - (NSDictionary<NSString *, NSNumber *> *)emptyAggregateRecord
@@ -160,18 +166,28 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
     NSDictionary *aggregate = state[FGChallengeRecordStoreAggregateKey];
     NSDictionary *friends = state[FGChallengeRecordStoreFriendsKey];
     NSArray *history = state[FGChallengeRecordStoreHistoryKey];
+    NSArray *processedRaceIdentifiers = state[FGChallengeRecordStoreProcessedRaceIdentifiersKey];
     NSNumber *schemaVersion = state[FGChallengeRecordStoreSchemaVersionKey];
 
-    if (![self nonnegativeIntegerNumber:schemaVersion] || schemaVersion.integerValue != FGChallengeRecordStoreSchemaVersion ||
+    if (![self nonnegativeIntegerNumber:schemaVersion] ||
+        (schemaVersion.integerValue != FGChallengeRecordStoreSchemaVersion && schemaVersion.integerValue != FGChallengeRecordStoreLegacySchemaVersion) ||
         ![aggregate isKindOfClass:[NSDictionary class]] || ![friends isKindOfClass:[NSDictionary class]] ||
         ![history isKindOfClass:[NSArray class]] || ![self validAggregateRecord:aggregate] ||
-        ![self validFriends:friends] || ![self validHistory:history]) {
+        ![self validFriends:friends] || ![self validHistory:history] || ![self friendTotals:friends matchAggregate:aggregate]) {
+        return nil;
+    }
+    if (schemaVersion.integerValue == FGChallengeRecordStoreLegacySchemaVersion) {
+        processedRaceIdentifiers = [self verifiedRaceIdentifiersFromHistory:history];
+    }
+    if (![self validProcessedRaceIdentifiers:processedRaceIdentifiers] ||
+        ![self processedRaceIdentifiers:processedRaceIdentifiers containVerifiedHistory:history]) {
         return nil;
     }
     return @{ FGChallengeRecordStoreSchemaVersionKey: @(FGChallengeRecordStoreSchemaVersion),
               FGChallengeRecordStoreAggregateKey: [aggregate copy],
               FGChallengeRecordStoreFriendsKey: [friends copy],
-              FGChallengeRecordStoreHistoryKey: [history copy] };
+              FGChallengeRecordStoreHistoryKey: [history copy],
+              FGChallengeRecordStoreProcessedRaceIdentifiersKey: [processedRaceIdentifiers copy] };
 }
 
 - (BOOL)validAggregateRecord:(NSDictionary *)record
@@ -212,6 +228,24 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
     return YES;
 }
 
+- (BOOL)friendTotals:(NSDictionary *)friends matchAggregate:(NSDictionary *)aggregate
+{
+    NSInteger wins = 0;
+    NSInteger losses = 0;
+    NSInteger draws = 0;
+    for (NSDictionary *friendRecord in friends.allValues) {
+        wins += [friendRecord[FGChallengeRecordStoreWinsKey] integerValue];
+        losses += [friendRecord[FGChallengeRecordStoreLossesKey] integerValue];
+        draws += [friendRecord[FGChallengeRecordStoreDrawsKey] integerValue];
+        if (wins > FGChallengeRecordStoreMaximumCounter || losses > FGChallengeRecordStoreMaximumCounter || draws > FGChallengeRecordStoreMaximumCounter) {
+            return NO;
+        }
+    }
+    return wins == [aggregate[FGChallengeRecordStoreWinsKey] integerValue] &&
+           losses == [aggregate[FGChallengeRecordStoreLossesKey] integerValue] &&
+           draws == [aggregate[FGChallengeRecordStoreDrawsKey] integerValue];
+}
+
 - (BOOL)validHistory:(NSArray *)history
 {
     if (history.count > FGChallengeRecordStoreHistoryLimit) {
@@ -238,6 +272,45 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
         return [self normalizedHistoryEntryFromMatch:entry verified:NO] != nil;
     }
     return NO;
+}
+
+- (BOOL)validProcessedRaceIdentifiers:(id)processedRaceIdentifiers
+{
+    if (![processedRaceIdentifiers isKindOfClass:[NSArray class]] || [(NSArray *)processedRaceIdentifiers count] > FGChallengeRecordStoreProcessedRaceIdentifierLimit) {
+        return NO;
+    }
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    for (id raceIdentifier in processedRaceIdentifiers) {
+        if (![self presentString:raceIdentifier] || [seen containsObject:raceIdentifier]) {
+            return NO;
+        }
+        [seen addObject:raceIdentifier];
+    }
+    return YES;
+}
+
+- (NSArray<NSString *> *)verifiedRaceIdentifiersFromHistory:(NSArray *)history
+{
+    NSMutableArray<NSString *> *raceIdentifiers = [NSMutableArray array];
+    for (NSDictionary *entry in history) {
+        if ([entry[FGChallengeRecordStoreVerificationStateKey] isEqualToString:FGChallengeRecordStoreVerifiedState]) {
+            [raceIdentifiers addObject:entry[FGChallengeRecordStoreRaceIdentifierKey]];
+        }
+    }
+    return raceIdentifiers;
+}
+
+- (BOOL)processedRaceIdentifiers:(NSArray<NSString *> *)processedRaceIdentifiers
+      containVerifiedHistory:(NSArray<NSDictionary<NSString *, id> *> *)history
+{
+    NSSet<NSString *> *processed = [NSSet setWithArray:processedRaceIdentifiers];
+    for (NSDictionary *entry in history) {
+        if ([entry[FGChallengeRecordStoreVerificationStateKey] isEqualToString:FGChallengeRecordStoreVerifiedState] &&
+            ![processed containsObject:entry[FGChallengeRecordStoreRaceIdentifierKey]]) {
+            return NO;
+        }
+    }
+    return YES;
 }
 
 - (NSDictionary<NSString *, id> *)normalizedHistoryEntryFromMatch:(NSDictionary<NSString *, id> *)match
@@ -310,16 +383,9 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
     }
 }
 
-- (BOOL)hasRecordedVerifiedRace:(NSDictionary<NSString *, id> *)historyEntry
+- (BOOL)hasProcessedRaceIdentifier:(NSString *)raceIdentifier
 {
-    NSString *raceIdentifier = historyEntry[FGChallengeRecordStoreRaceIdentifierKey];
-    for (NSDictionary *existingEntry in _state[FGChallengeRecordStoreHistoryKey]) {
-        if ([existingEntry[FGChallengeRecordStoreVerificationStateKey] isEqualToString:FGChallengeRecordStoreVerifiedState] &&
-            [existingEntry[FGChallengeRecordStoreRaceIdentifierKey] isEqualToString:raceIdentifier]) {
-            return YES;
-        }
-    }
-    return NO;
+    return [_state[FGChallengeRecordStoreProcessedRaceIdentifiersKey] containsObject:raceIdentifier];
 }
 
 - (BOOL)canRecordCompetitiveOutcome:(FGChallengeOutcome)outcome
@@ -347,6 +413,16 @@ static NSInteger const FGChallengeRecordStoreMaximumCounter = 1000000000;
         [history removeObjectsInRange:NSMakeRange(FGChallengeRecordStoreHistoryLimit, history.count - FGChallengeRecordStoreHistoryLimit)];
     }
     _state[FGChallengeRecordStoreHistoryKey] = history;
+}
+
+- (void)appendProcessedRaceIdentifier:(NSString *)raceIdentifier
+{
+    NSMutableArray<NSString *> *processedRaceIdentifiers = [_state[FGChallengeRecordStoreProcessedRaceIdentifiersKey] mutableCopy];
+    [processedRaceIdentifiers insertObject:raceIdentifier atIndex:0];
+    if (processedRaceIdentifiers.count > FGChallengeRecordStoreProcessedRaceIdentifierLimit) {
+        [processedRaceIdentifiers removeObjectsInRange:NSMakeRange(FGChallengeRecordStoreProcessedRaceIdentifierLimit, processedRaceIdentifiers.count - FGChallengeRecordStoreProcessedRaceIdentifierLimit)];
+    }
+    _state[FGChallengeRecordStoreProcessedRaceIdentifiersKey] = processedRaceIdentifiers;
 }
 
 - (void)persist
