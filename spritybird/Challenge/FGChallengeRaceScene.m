@@ -23,6 +23,7 @@ static const CGFloat FGChallengeRaceSceneFlapAnimationFrameSeconds = 0.2;
 static const CGFloat FGChallengeRaceSceneRotationVelocityScale = 0.0001;
 static const CGFloat FGChallengeRaceSceneGravity = -9.8;
 
+static const uint32_t FGChallengeRaceSceneBackgroundCategory = 1u << 0;
 static const uint32_t FGChallengeRaceSceneBirdCategory = 1u << 1;
 static const uint32_t FGChallengeRaceSceneFloorCategory = 1u << 2;
 static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
@@ -38,6 +39,10 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
 @property (nonatomic, strong) NSMutableIndexSet *scoredObstacleIndexes;
 @property (nonatomic, assign) NSTimeInterval lastUpdateTime;
 @property (nonatomic, assign) BOOL hasStartedRace;
+@property (nonatomic, assign) BOOL hasLocalCrashed;
+@property (nonatomic, assign, readwrite) NSUInteger localProgressCheckpoint;
+@property (nonatomic, assign, readwrite) NSInteger localScore;
+@property (nonatomic, copy, readwrite) NSDictionary<NSString *, id> *localFinalRecord;
 @end
 
 @implementation FGChallengeRaceScene
@@ -118,6 +123,11 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     background.zPosition = -10.0;
     // The background is intentionally stationary: compatibility speed is 0.
     background.speed = FGChallengeRaceSceneBackgroundScrollSpeed;
+    background.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(0.0, 0.0,
+                                                                                  self.size.width,
+                                                                                  self.size.height)];
+    background.physicsBody.categoryBitMask = FGChallengeRaceSceneBackgroundCategory;
+    background.physicsBody.contactTestBitMask = FGChallengeRaceSceneBirdCategory;
     [self addChild:background];
 
     self.floorNode = [SKSpriteNode spriteNodeWithImageNamed:@"floor"];
@@ -219,13 +229,37 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
 
 - (void)updateLocalProgress
 {
+    __block BOOL didPassObstacle = NO;
     [self.topObstacles enumerateObjectsUsingBlock:^(SKSpriteNode *topPipe, NSUInteger index, BOOL *stop) {
         (void)stop;
         if (![self.scoredObstacleIndexes containsIndex:index] &&
             topPipe.position.x + (topPipe.size.width / 2.0) <= self.localBird.position.x) {
             [self.scoredObstacleIndexes addIndex:index];
+            self.localProgressCheckpoint += 1;
+            self.localScore += 1;
+            didPassObstacle = YES;
         }
     }];
+    if (didPassObstacle && [self.eventDelegate respondsToSelector:@selector(challengeRaceScene:didUpdateLocalProgressCheckpoint:score:)]) {
+        [self.eventDelegate challengeRaceScene:self
+                        didUpdateLocalProgressCheckpoint:self.localProgressCheckpoint
+                                             score:self.localScore];
+    }
+}
+
+- (void)notifyDelegateOfLocalFinalRecord
+{
+    self.localFinalRecord = @{ @"raceIdentifier": self.raceContract.raceIdentifier,
+                               @"playerIdentifier": self.coordinator.localPlayerIdentifier,
+                               @"compatibilityFingerprint": self.raceContract.compatibilityFingerprint,
+                               @"progressCheckpoint": @(self.localProgressCheckpoint),
+                               @"score": @(self.localScore),
+                               @"crashed": @YES,
+                               @"disconnected": @NO,
+                               @"disconnectDurationSeconds": @0 };
+    if ([self.eventDelegate respondsToSelector:@selector(challengeRaceScene:didProduceLocalFinalRecord:)]) {
+        [self.eventDelegate challengeRaceScene:self didProduceLocalFinalRecord:self.localFinalRecord];
+    }
 }
 
 #pragma mark - Local authority input and collision
@@ -251,7 +285,12 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     if (firstBody.node != self.localBird && secondBody.node != self.localBird) {
         return;
     }
+    if (self.hasLocalCrashed) {
+        return;
+    }
+    self.hasLocalCrashed = YES;
     [self.coordinator recordLocalCrashAtDate:[NSDate date]];
+    [self notifyDelegateOfLocalFinalRecord];
 }
 
 @end

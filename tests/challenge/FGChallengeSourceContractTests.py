@@ -80,6 +80,22 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("applyImpulse:CGVectorMake(0.0, FGChallengeRaceSceneFlapImpulse)", implementation)
         self.assertIn("timePerFrame:FGChallengeRaceSceneFlapAnimationFrameSeconds", implementation)
 
+        self.assertIn("FGChallengeRaceSceneBackgroundCategory = 1u << 0", implementation)
+        self.assertIn("background.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:", implementation)
+        self.assertIn("background.physicsBody.categoryBitMask = FGChallengeRaceSceneBackgroundCategory", implementation)
+        self.assertIn("background.physicsBody.contactTestBitMask = FGChallengeRaceSceneBirdCategory", implementation)
+
+        self.assertIn("FGChallengeRaceSceneEventDelegate", header)
+        self.assertIn("didUpdateLocalProgressCheckpoint", header)
+        self.assertIn("didProduceLocalFinalRecord", header)
+        self.assertIn("localProgressCheckpoint", header)
+        self.assertIn("localScore", header)
+        self.assertIn("localFinalRecord", header)
+        self.assertIn("self.localProgressCheckpoint += 1", implementation)
+        self.assertIn("self.localScore += 1", implementation)
+        self.assertIn("notifyDelegateOfLocalFinalRecord", implementation)
+        self.assertNotRegex(source, r'FGChallengeRecordStore|FGChallengeResultVerifier|FGChallengeTransport')
+
         packet_handler = re.search(
             r'-\s*\(void\)receiveAcceptedRemotePacket:\(FGChallengePacket \*\)packet\s*\{(?P<body>.*?)\n\}',
             implementation,
@@ -89,9 +105,15 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("ghostRenderer renderAcceptedPacket:packet", packet_handler.group("body"))
         self.assertNotRegex(packet_handler.group("body"), r'physicsBody|score|obstacle|applyImpulse|setVelocity')
 
+        scene_interface = re.search(
+            r'@interface\s+FGChallengeRaceScene\b(?P<body>.*?)@end',
+            header,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(scene_interface, "race scene public interface must exist")
         public_methods = re.findall(
             r'^-\s*\([^)]*\)\s*([A-Za-z_][A-Za-z0-9_]*):?',
-            header,
+            scene_interface.group("body"),
             re.MULTILINE,
         )
         self.assertEqual(
