@@ -200,9 +200,14 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
                                 remoteFinalRecord:(NSDictionary<NSString *,id> *)remoteFinalRecord
                            remoteDerivedOutcome:(FGChallengeOutcome)remoteDerivedOutcome
 {
-    if (self.state != FGChallengeCoordinatorStateVerifying || self.activeContract == nil || ![self validOutcome:remoteDerivedOutcome]) {
+    NSDictionary<NSString *, id> *authoritativeLocalFinalRecord;
+
+    if (self.state != FGChallengeCoordinatorStateVerifying || self.activeContract == nil ||
+        self.latestLocalFinalRecord == nil || ![self validOutcome:remoteDerivedOutcome] ||
+        (localFinalRecord != nil && ![localFinalRecord isEqualToDictionary:self.latestLocalFinalRecord])) {
         return NO;
     }
+    authoritativeLocalFinalRecord = self.latestLocalFinalRecord;
     if (self.hasPendingForfeit) {
         // A recorded reconnect-grace expiry is an independently observed
         // transport fact. Final packets may add diagnostics but cannot turn a
@@ -210,17 +215,17 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
         self.outcome = self.pendingForfeitOutcome;
         self.resultVerified = YES;
         self.state = FGChallengeCoordinatorStateResults;
-        [self recordCompetitiveOutcome:self.outcome localRecord:localFinalRecord];
+        [self recordCompetitiveOutcome:self.outcome localRecord:authoritativeLocalFinalRecord];
         self.hasPendingForfeit = NO;
         return YES;
     }
-    FGChallengeVerifiedResult *result = [self.resultVerifier verifyLocalRecord:localFinalRecord remoteRecord:remoteFinalRecord contract:self.activeContract];
+    FGChallengeVerifiedResult *result = [self.resultVerifier verifyLocalRecord:authoritativeLocalFinalRecord remoteRecord:remoteFinalRecord contract:self.activeContract];
     if (!result.isVerified || ![self remoteOutcome:remoteDerivedOutcome agreesWithLocalOutcome:result.localOutcome]) {
         self.outcome = FGChallengeOutcomeUnverified;
         self.resultVerified = NO;
         self.resultReason = !result.isVerified ? result.reason : FGChallengeCoordinatorReasonResultDisagreement;
         self.state = FGChallengeCoordinatorStateVoided;
-        [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:localFinalRecord];
+        [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:authoritativeLocalFinalRecord];
         return YES;
     }
     self.outcome = result.localOutcome;
@@ -228,13 +233,13 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
     self.resultReason = result.reason;
     if (result.localOutcome == FGChallengeOutcomeVoid) {
         self.state = FGChallengeCoordinatorStateVoided;
-        [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:localFinalRecord];
+        [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:authoritativeLocalFinalRecord];
     } else if (FGChallengeOutcomeIsCompetitive(result.localOutcome)) {
         self.state = FGChallengeCoordinatorStateResults;
-        [self recordCompetitiveOutcome:result.localOutcome localRecord:localFinalRecord];
+        [self recordCompetitiveOutcome:result.localOutcome localRecord:authoritativeLocalFinalRecord];
     } else {
         self.state = FGChallengeCoordinatorStateVoided;
-        [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:localFinalRecord];
+        [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:authoritativeLocalFinalRecord];
     }
     return YES;
 }
@@ -300,7 +305,8 @@ static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-rec
     NSNumber *score;
 
     (void)raceScene;
-    if (![self canConsumeSceneEvent] || ![self sceneFinalRecordMatchesActiveContract:finalRecord]) {
+    if (self.latestLocalFinalRecord != nil || ![self canConsumeSceneEvent] ||
+        ![self sceneFinalRecordMatchesActiveContract:finalRecord]) {
         return;
     }
     progressCheckpoint = finalRecord[@"progressCheckpoint"];
