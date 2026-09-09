@@ -19,6 +19,34 @@ RESULTS_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewC
 RESULTS_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewController.m"
 ROOT_VIEW_CONTROLLER_HEADER = REPOSITORY_ROOT / "spritybird/Classes/Controllers/ViewController.h"
 ROOT_VIEW_CONTROLLER_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Classes/Controllers/ViewController.m"
+PBX_PROJECT = REPOSITORY_ROOT / "Flappy Gratata.xcodeproj/project.pbxproj"
+CHALLENGE_HEADERS = (
+    "FGChallengeCoordinator.h",
+    "FGChallengeCourseGenerator.h",
+    "FGChallengeGhostRenderer.h",
+    "FGChallengeLobbyViewController.h",
+    "FGChallengePacket.h",
+    "FGChallengeRaceContract.h",
+    "FGChallengeRaceScene.h",
+    "FGChallengeRecordStore.h",
+    "FGChallengeResultVerifier.h",
+    "FGChallengeResultsViewController.h",
+    "FGChallengeRules.h",
+    "FGChallengeTransport.h",
+)
+CHALLENGE_IMPLEMENTATIONS = tuple(header.replace(".h", ".m") for header in CHALLENGE_HEADERS)
+CHALLENGE_TEST_IMPLEMENTATIONS = (
+    "FGChallengeCoordinatorTests.m",
+    "FGChallengeCourseGeneratorTests.m",
+    "FGChallengePacketTests.m",
+    "FGChallengeRaceContractTests.m",
+    "FGChallengeRecordStoreTests.m",
+    "FGChallengeResultVerifierTests.m",
+    "FGChallengeRulesTests.m",
+    "FGChallengeTransportTests.m",
+)
+APPLICATION_SOURCES_PHASE = "82C6A08B18A6F53400FEBE9B"
+TEST_SOURCES_PHASE = "82C6A0AC18A6F53400FEBE9B"
 PROTECTED_CLASSIC_HASHES = {
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "50c6f4542d0a849f1122dcee726280bd867b049fd651dbd8b5e0df4ade2bc4f9",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
@@ -28,6 +56,83 @@ PROTECTED_CLASSIC_HASHES = {
 
 
 class FGChallengeSourceContractTests(unittest.TestCase):
+    def test_project_registers_challenge_sources_in_their_targets(self):
+        """Catches Challenge code that is present on disk but omitted from an Xcode target."""
+        self.assertTrue(PBX_PROJECT.is_file(), "project.pbxproj must exist")
+        project = PBX_PROJECT.read_text(encoding="utf-8")
+
+        file_references = {
+            match.group("name"): match.group("identifier")
+            for match in re.finditer(
+                r"^\s*(?P<identifier>[A-F0-9]{24}) /\* (?P<name>[^*]+) \*/ = "
+                r"\{isa = PBXFileReference;.*?\};$",
+                project,
+                re.MULTILINE,
+            )
+        }
+        build_files = {
+            match.group("identifier"): match.group("file_reference")
+            for match in re.finditer(
+                r"^\s*(?P<identifier>[A-F0-9]{24}) /\* [^*]+ in Sources \*/ = "
+                r"\{isa = PBXBuildFile; fileRef = (?P<file_reference>[A-F0-9]{24}) /\* [^*]+ \*/; \};$",
+                project,
+                re.MULTILINE,
+            )
+        }
+
+        source_phase_members = {}
+        for phase in (APPLICATION_SOURCES_PHASE, TEST_SOURCES_PHASE):
+            phase_match = re.search(
+                rf"^\s*{phase} /\* Sources \*/ = \{{(?P<body>.*?)^\s*\}};",
+                project,
+                re.MULTILINE | re.DOTALL,
+            )
+            self.assertIsNotNone(phase_match, f"{phase} must be a Sources build phase")
+            source_phase_members[phase] = set(
+                re.findall(r"^\s*([A-F0-9]{24}) /\* [^*]+ in Sources \*/,", phase_match.group("body"), re.MULTILINE)
+            )
+
+        challenge_group = re.search(
+            r"^\s*[A-F0-9]{24} /\* Challenge \*/ = \{(?P<body>.*?)^\s*\};",
+            project,
+            re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(challenge_group, "Challenge files must appear in a project group")
+        challenge_group_members = set(
+            re.findall(r"^\s*([A-F0-9]{24}) /\* [^*]+ \*/,", challenge_group.group("body"), re.MULTILINE)
+        )
+
+        for filename in CHALLENGE_HEADERS + CHALLENGE_IMPLEMENTATIONS:
+            self.assertIn(filename, file_references, f"{filename} needs a PBX file reference")
+            self.assertIn(
+                file_references[filename],
+                challenge_group_members,
+                f"{filename} must appear in the Challenge group",
+            )
+
+        for filename in CHALLENGE_IMPLEMENTATIONS:
+            file_reference = file_references[filename]
+            matching_build_files = {
+                identifier for identifier, referenced_file in build_files.items() if referenced_file == file_reference
+            }
+            self.assertTrue(matching_build_files, f"{filename} needs a PBX build file")
+            self.assertTrue(
+                matching_build_files & source_phase_members[APPLICATION_SOURCES_PHASE],
+                f"{filename} must belong to the application Sources build phase",
+            )
+
+        for filename in CHALLENGE_TEST_IMPLEMENTATIONS:
+            self.assertIn(filename, file_references, f"{filename} needs a PBX file reference")
+            file_reference = file_references[filename]
+            matching_build_files = {
+                identifier for identifier, referenced_file in build_files.items() if referenced_file == file_reference
+            }
+            self.assertTrue(matching_build_files, f"{filename} needs a PBX build file")
+            self.assertTrue(
+                matching_build_files & source_phase_members[TEST_SOURCES_PHASE],
+                f"{filename} must belong to the test Sources build phase",
+            )
+
     def test_root_menu_surfaces_challenge_friend_and_routes_to_lobby(self):
         """Catches a Challenge lobby that cannot be reached from the home flow."""
         self.assertTrue(ROOT_VIEW_CONTROLLER_HEADER.is_file(), "ViewController.h must exist")

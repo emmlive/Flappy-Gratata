@@ -73,6 +73,26 @@
 		B9F6407A6541C00A4F59D2CA /* bird_legendary_1@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 74662D5C78EAD90F2F890E46 /* bird_legendary_1@2x.png */; };
 		2B1817316A9557530B660FC3 /* bird_legendary_2@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 0BDBD72ABAEF67242D8E446C /* bird_legendary_2@2x.png */; };
 		E5BE0F1B30D003457F00B919 /* bird_legendary_3@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 9BB1B19E1FA58AE8371A6C05 /* bird_legendary_3@2x.png */; };
+		F15C00000000000000000201 /* FGChallengeCoordinator.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000111 /* FGChallengeCoordinator.m */; };
+		F15C00000000000000000202 /* FGChallengeCourseGenerator.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000112 /* FGChallengeCourseGenerator.m */; };
+		F15C00000000000000000203 /* FGChallengeGhostRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000113 /* FGChallengeGhostRenderer.m */; };
+		F15C00000000000000000204 /* FGChallengeLobbyViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000114 /* FGChallengeLobbyViewController.m */; };
+		F15C00000000000000000205 /* FGChallengePacket.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000115 /* FGChallengePacket.m */; };
+		F15C00000000000000000206 /* FGChallengeRaceContract.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000116 /* FGChallengeRaceContract.m */; };
+		F15C00000000000000000207 /* FGChallengeRaceScene.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000117 /* FGChallengeRaceScene.m */; };
+		F15C00000000000000000208 /* FGChallengeRecordStore.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000118 /* FGChallengeRecordStore.m */; };
+		F15C00000000000000000209 /* FGChallengeResultVerifier.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000119 /* FGChallengeResultVerifier.m */; };
+		F15C0000000000000000020A /* FGChallengeResultsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C0000000000000000011A /* FGChallengeResultsViewController.m */; };
+		F15C0000000000000000020B /* FGChallengeRules.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C0000000000000000011B /* FGChallengeRules.m */; };
+		F15C0000000000000000020C /* FGChallengeTransport.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C0000000000000000011C /* FGChallengeTransport.m */; };
+		F15C00000000000000000211 /* FGChallengeCoordinatorTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000121 /* FGChallengeCoordinatorTests.m */; };
+		F15C00000000000000000212 /* FGChallengeCourseGeneratorTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000122 /* FGChallengeCourseGeneratorTests.m */; };
+		F15C00000000000000000213 /* FGChallengePacketTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000123 /* FGChallengePacketTests.m */; };
+		F15C00000000000000000214 /* FGChallengeRaceContractTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000124 /* FGChallengeRaceContractTests.m */; };
+		F15C00000000000000000215 /* FGChallengeRecordStoreTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000125 /* FGChallengeRecordStoreTests.m */; };
+		F15C00000000000000000216 /* FGChallengeResultVerifierTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000126 /* FGChallengeResultVerifierTests.m */; };
+		F15C00000000000000000217 /* FGChallengeRulesTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000127 /* FGChallengeRulesTests.m */; };
+		F15C00000000000000000218 /* FGChallengeTransportTests.m in Sources */ = {isa = PBXBuildFile; fileRef = F15C00000000000000000128 /* FGChallengeTransportTests.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -169,6 +189,38 @@
 		74662D5C78EAD90F2F890E46 /* bird_legendary_1@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_legendary_1@2x.png"; sourceTree = "<group>"; };
 		0BDBD72ABAEF67242D8E446C /* bird_legendary_2@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_legendary_2@2x.png"; sourceTree = "<group>"; };
 		9BB1B19E1FA58AE8371A6C05 /* bird_legendary_3@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "bird_legendary_3@2x.png"; sourceTree = "<group>"; };
+		F15C00000000000000000101 /* FGChallengeCoordinator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeCoordinator.h; sourceTree = "<group>"; };
+		F15C00000000000000000102 /* FGChallengeCourseGenerator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeCourseGenerator.h; sourceTree = "<group>"; };
+		F15C00000000000000000103 /* FGChallengeGhostRenderer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeGhostRenderer.h; sourceTree = "<group>"; };
+		F15C00000000000000000104 /* FGChallengeLobbyViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeLobbyViewController.h; sourceTree = "<group>"; };
+		F15C00000000000000000105 /* FGChallengePacket.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengePacket.h; sourceTree = "<group>"; };
+		F15C00000000000000000106 /* FGChallengeRaceContract.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeRaceContract.h; sourceTree = "<group>"; };
+		F15C00000000000000000107 /* FGChallengeRaceScene.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeRaceScene.h; sourceTree = "<group>"; };
+		F15C00000000000000000108 /* FGChallengeRecordStore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeRecordStore.h; sourceTree = "<group>"; };
+		F15C00000000000000000109 /* FGChallengeResultVerifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeResultVerifier.h; sourceTree = "<group>"; };
+		F15C0000000000000000010A /* FGChallengeResultsViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeResultsViewController.h; sourceTree = "<group>"; };
+		F15C0000000000000000010B /* FGChallengeRules.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeRules.h; sourceTree = "<group>"; };
+		F15C0000000000000000010C /* FGChallengeTransport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGChallengeTransport.h; sourceTree = "<group>"; };
+		F15C00000000000000000111 /* FGChallengeCoordinator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeCoordinator.m; sourceTree = "<group>"; };
+		F15C00000000000000000112 /* FGChallengeCourseGenerator.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeCourseGenerator.m; sourceTree = "<group>"; };
+		F15C00000000000000000113 /* FGChallengeGhostRenderer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeGhostRenderer.m; sourceTree = "<group>"; };
+		F15C00000000000000000114 /* FGChallengeLobbyViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeLobbyViewController.m; sourceTree = "<group>"; };
+		F15C00000000000000000115 /* FGChallengePacket.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengePacket.m; sourceTree = "<group>"; };
+		F15C00000000000000000116 /* FGChallengeRaceContract.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeRaceContract.m; sourceTree = "<group>"; };
+		F15C00000000000000000117 /* FGChallengeRaceScene.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeRaceScene.m; sourceTree = "<group>"; };
+		F15C00000000000000000118 /* FGChallengeRecordStore.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeRecordStore.m; sourceTree = "<group>"; };
+		F15C00000000000000000119 /* FGChallengeResultVerifier.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeResultVerifier.m; sourceTree = "<group>"; };
+		F15C0000000000000000011A /* FGChallengeResultsViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeResultsViewController.m; sourceTree = "<group>"; };
+		F15C0000000000000000011B /* FGChallengeRules.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeRules.m; sourceTree = "<group>"; };
+		F15C0000000000000000011C /* FGChallengeTransport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeTransport.m; sourceTree = "<group>"; };
+		F15C00000000000000000121 /* FGChallengeCoordinatorTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeCoordinatorTests.m; sourceTree = "<group>"; };
+		F15C00000000000000000122 /* FGChallengeCourseGeneratorTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeCourseGeneratorTests.m; sourceTree = "<group>"; };
+		F15C00000000000000000123 /* FGChallengePacketTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengePacketTests.m; sourceTree = "<group>"; };
+		F15C00000000000000000124 /* FGChallengeRaceContractTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeRaceContractTests.m; sourceTree = "<group>"; };
+		F15C00000000000000000125 /* FGChallengeRecordStoreTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeRecordStoreTests.m; sourceTree = "<group>"; };
+		F15C00000000000000000126 /* FGChallengeResultVerifierTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeResultVerifierTests.m; sourceTree = "<group>"; };
+		F15C00000000000000000127 /* FGChallengeRulesTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeRulesTests.m; sourceTree = "<group>"; };
+		F15C00000000000000000128 /* FGChallengeTransportTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGChallengeTransportTests.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -294,6 +346,7 @@
 			isa = PBXGroup;
 			children = (
 				82C6A0D218A790BA00FEBE9B /* Classes */,
+				F15C00000000000000000001 /* Challenge */,
 				82C6A0D918A7913200FEBE9B /* Resources */,
 				82C6A09918A6F53400FEBE9B /* Supporting Files */,
 			);
@@ -315,6 +368,7 @@
 			isa = PBXGroup;
 			children = (
 				82C6A0BD18A6F53400FEBE9B /* spritybirdTests.m */,
+				F15C00000000000000000002 /* Challenge Tests */,
 				82C6A0B818A6F53400FEBE9B /* Supporting Files */,
 			);
 			name = "spritybird Tests";
@@ -328,6 +382,52 @@
 				82C6A0BA18A6F53400FEBE9B /* InfoPlist.strings */,
 			);
 			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		F15C00000000000000000001 /* Challenge */ = {
+			isa = PBXGroup;
+			children = (
+				F15C00000000000000000101 /* FGChallengeCoordinator.h */,
+				F15C00000000000000000111 /* FGChallengeCoordinator.m */,
+				F15C00000000000000000102 /* FGChallengeCourseGenerator.h */,
+				F15C00000000000000000112 /* FGChallengeCourseGenerator.m */,
+				F15C00000000000000000103 /* FGChallengeGhostRenderer.h */,
+				F15C00000000000000000113 /* FGChallengeGhostRenderer.m */,
+				F15C00000000000000000104 /* FGChallengeLobbyViewController.h */,
+				F15C00000000000000000114 /* FGChallengeLobbyViewController.m */,
+				F15C00000000000000000105 /* FGChallengePacket.h */,
+				F15C00000000000000000115 /* FGChallengePacket.m */,
+				F15C00000000000000000106 /* FGChallengeRaceContract.h */,
+				F15C00000000000000000116 /* FGChallengeRaceContract.m */,
+				F15C00000000000000000107 /* FGChallengeRaceScene.h */,
+				F15C00000000000000000117 /* FGChallengeRaceScene.m */,
+				F15C00000000000000000108 /* FGChallengeRecordStore.h */,
+				F15C00000000000000000118 /* FGChallengeRecordStore.m */,
+				F15C00000000000000000109 /* FGChallengeResultVerifier.h */,
+				F15C00000000000000000119 /* FGChallengeResultVerifier.m */,
+				F15C0000000000000000010A /* FGChallengeResultsViewController.h */,
+				F15C0000000000000000011A /* FGChallengeResultsViewController.m */,
+				F15C0000000000000000010B /* FGChallengeRules.h */,
+				F15C0000000000000000011B /* FGChallengeRules.m */,
+				F15C0000000000000000010C /* FGChallengeTransport.h */,
+				F15C0000000000000000011C /* FGChallengeTransport.m */,
+			);
+			path = Challenge;
+			sourceTree = "<group>";
+		};
+		F15C00000000000000000002 /* Challenge Tests */ = {
+			isa = PBXGroup;
+			children = (
+				F15C00000000000000000121 /* FGChallengeCoordinatorTests.m */,
+				F15C00000000000000000122 /* FGChallengeCourseGeneratorTests.m */,
+				F15C00000000000000000123 /* FGChallengePacketTests.m */,
+				F15C00000000000000000124 /* FGChallengeRaceContractTests.m */,
+				F15C00000000000000000125 /* FGChallengeRecordStoreTests.m */,
+				F15C00000000000000000126 /* FGChallengeResultVerifierTests.m */,
+				F15C00000000000000000127 /* FGChallengeRulesTests.m */,
+				F15C00000000000000000128 /* FGChallengeTransportTests.m */,
+			);
+			path = ../tests/challenge;
 			sourceTree = "<group>";
 		};
 		82C6A0D218A790BA00FEBE9B /* Classes */ = {
@@ -576,6 +676,18 @@
 				821A755D18AD617800B376D5 /* Math.m in Sources */,
 				CEE995F318E6064C00248B08 /* appController.m in Sources */,
 				821A755618AD616C00B376D5 /* AppDelegate.m in Sources */,
+				F15C00000000000000000201 /* FGChallengeCoordinator.m in Sources */,
+				F15C00000000000000000202 /* FGChallengeCourseGenerator.m in Sources */,
+				F15C00000000000000000203 /* FGChallengeGhostRenderer.m in Sources */,
+				F15C00000000000000000204 /* FGChallengeLobbyViewController.m in Sources */,
+				F15C00000000000000000205 /* FGChallengePacket.m in Sources */,
+				F15C00000000000000000206 /* FGChallengeRaceContract.m in Sources */,
+				F15C00000000000000000207 /* FGChallengeRaceScene.m in Sources */,
+				F15C00000000000000000208 /* FGChallengeRecordStore.m in Sources */,
+				F15C00000000000000000209 /* FGChallengeResultVerifier.m in Sources */,
+				F15C0000000000000000020A /* FGChallengeResultsViewController.m in Sources */,
+				F15C0000000000000000020B /* FGChallengeRules.m in Sources */,
+				F15C0000000000000000020C /* FGChallengeTransport.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -584,6 +696,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				82C6A0BE18A6F53400FEBE9B /* spritybirdTests.m in Sources */,
+				F15C00000000000000000211 /* FGChallengeCoordinatorTests.m in Sources */,
+				F15C00000000000000000212 /* FGChallengeCourseGeneratorTests.m in Sources */,
+				F15C00000000000000000213 /* FGChallengePacketTests.m in Sources */,
+				F15C00000000000000000214 /* FGChallengeRaceContractTests.m in Sources */,
+				F15C00000000000000000215 /* FGChallengeRecordStoreTests.m in Sources */,
+				F15C00000000000000000216 /* FGChallengeResultVerifierTests.m in Sources */,
+				F15C00000000000000000217 /* FGChallengeRulesTests.m in Sources */,
+				F15C00000000000000000218 /* FGChallengeTransportTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
