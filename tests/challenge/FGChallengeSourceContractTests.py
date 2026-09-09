@@ -15,6 +15,8 @@ COORDINATOR_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeCoordina
 COORDINATOR_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeCoordinator.m"
 LOBBY_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeLobbyViewController.h"
 LOBBY_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeLobbyViewController.m"
+RESULTS_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewController.h"
+RESULTS_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewController.m"
 PROTECTED_CLASSIC_HASHES = {
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "50c6f4542d0a849f1122dcee726280bd867b049fd651dbd8b5e0df4ade2bc4f9",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
@@ -224,6 +226,46 @@ class FGChallengeSourceContractTests(unittest.TestCase):
             "Connection lost before start. Lobby closed without a result.",
         ):
             self.assertIn(required_copy, source)
+
+    def test_results_surface_verified_outcomes_records_and_safe_rematch_actions(self):
+        """Catches missing result states or a presentation-time record mutation."""
+        self.assertTrue(RESULTS_HEADER.is_file(), "FGChallengeResultsViewController.h must exist")
+        self.assertTrue(RESULTS_IMPLEMENTATION.is_file(), "FGChallengeResultsViewController.m must exist")
+
+        header = RESULTS_HEADER.read_text(encoding="utf-8")
+        implementation = RESULTS_IMPLEMENTATION.read_text(encoding="utf-8")
+        source = header + "\n" + implementation
+
+        self.assertIn("UIViewController", header)
+        self.assertIn("initWithVerifiedResult", header)
+        self.assertIn("FGChallengeVerifiedResult", source)
+        self.assertIn("FGChallengeRecordStore", source)
+        self.assertIn("FGChallengeCoordinator", source)
+        self.assertIn("aggregateRecord", implementation)
+        self.assertIn("requestRematchWithContract", implementation)
+
+        for outcome in (
+            "FGChallengeOutcomeWin",
+            "FGChallengeOutcomeLoss",
+            "FGChallengeOutcomeDraw",
+            "FGChallengeOutcomeUnverified",
+        ):
+            self.assertIn(outcome, implementation)
+
+        for required_copy in (
+            "You Win",
+            "You Lost",
+            "Draw",
+            "Unverified",
+            "Race could not be verified — no result recorded.",
+            "Multiplayer Record",
+            "Rematch",
+            "Back to Home",
+        ):
+            self.assertIn(required_copy, source)
+
+        self.assertNotIn("recordVerifiedMatch", source)
+        self.assertNotIn("recordVoidDiagnostic", source)
 
 
 if __name__ == "__main__":
