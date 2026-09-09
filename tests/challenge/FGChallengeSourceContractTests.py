@@ -184,6 +184,23 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("updateLocalReady", implementation)
         self.assertIn("showVersionMismatch", header)
         self.assertIn("showConnectionLostBeforeStart", header)
+        self.assertIn("pendingInvitationPlayerIdentifier", implementation)
+        self.assertIn("self.pendingInvitationPlayerIdentifier = [playerIdentifier copy];", implementation)
+        self.assertIn("renderPendingInvitation", implementation)
+        self.assertIn("closeLobbyIfPossible", implementation)
+        self.assertRegex(
+            implementation,
+            r"(?s)showConnectionLostBeforeStart.*?closeLobbyIfPossible",
+        )
+        self.assertIn("FGChallengeTransportDelegate", implementation)
+        self.assertIn("self.transport.delegate = self", implementation)
+        self.assertIn("didAuthenticatePlayer", implementation)
+        self.assertIn("challengeTransportDidAcceptInvitation", implementation)
+        self.assertIn("challengeTransportDidDeclineInvitation", implementation)
+        self.assertIn("didChangePeerWithIdentifier", implementation)
+        self.assertIn("canChangeReady", implementation)
+        self.assertIn("FGChallengeCoordinatorStateLobby", implementation)
+        self.assertIn("FGChallengeCoordinatorStateReady", implementation)
 
         for required_copy in (
             "Invite Friend",

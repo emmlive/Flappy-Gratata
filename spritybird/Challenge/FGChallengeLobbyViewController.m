@@ -3,10 +3,14 @@
 #import "FGChallengeCoordinator.h"
 #import "FGChallengeTransport.h"
 
-@interface FGChallengeLobbyViewController ()
+static void *FGChallengeLobbyCoordinatorObservationContext = &FGChallengeLobbyCoordinatorObservationContext;
+static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTransportObservationContext;
+
+@interface FGChallengeLobbyViewController () <FGChallengeTransportDelegate>
 
 @property (nonatomic, strong) FGChallengeCoordinator *coordinator;
 @property (nonatomic, strong) id<FGChallengeTransporting> transport;
+@property (nonatomic, weak) id<FGChallengeTransportDelegate> forwardedTransportDelegate;
 @property (nonatomic, strong) UILabel *identityLabel;
 @property (nonatomic, strong) UILabel *invitationLabel;
 @property (nonatomic, strong) UILabel *statusLabel;
@@ -14,6 +18,12 @@
 @property (nonatomic, strong) UIButton *readyButton;
 @property (nonatomic, assign) BOOL localReady;
 @property (nonatomic, copy) NSString *preRaceFailureMessage;
+@property (nonatomic, copy) NSString *pendingInvitationPlayerIdentifier;
+@property (nonatomic, copy) NSString *pendingInvitationMessage;
+@property (nonatomic, copy) NSString *pendingInvitationStatus;
+@property (nonatomic, assign) BOOL closeRequested;
+@property (nonatomic, assign) BOOL observingChallengeState;
+@property (nonatomic, assign) FGChallengeCoordinatorState observedCoordinatorState;
 
 @end
 
@@ -30,6 +40,10 @@
     if (self) {
         _coordinator = coordinator;
         _transport = transport;
+        _forwardedTransportDelegate = transport.delegate;
+        _transport.delegate = self;
+        _observedCoordinatorState = coordinator.state;
+        [self beginObservingChallengeState];
     }
     return self;
 }
@@ -195,19 +209,37 @@
     [self refreshLobby];
 }
 
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [self closeLobbyIfPossible];
+}
+
+- (void)dealloc
+{
+    [self endObservingChallengeState];
+    if (self.transport.delegate == self) {
+        self.transport.delegate = self.forwardedTransportDelegate;
+    }
+}
+
 - (void)showIncomingInvitationFromPlayerIdentifier:(NSString *)playerIdentifier
 {
-    self.invitationLabel.text = playerIdentifier.length > 0
+    self.pendingInvitationPlayerIdentifier = [playerIdentifier copy];
+    self.pendingInvitationMessage = playerIdentifier.length > 0
         ? [NSString stringWithFormat:@"Incoming invitation from %@.", playerIdentifier]
         : @"Incoming invitation.";
-    self.statusLabel.text = @"Waiting for a secure connection.";
+    self.pendingInvitationStatus = @"Waiting for a secure connection.";
+    [self renderPendingInvitation];
 }
 
 - (void)showInvitationDeclined
 {
-    self.invitationLabel.text = @"Invitation declined.";
-    self.statusLabel.text = @"No result or penalty was recorded.";
+    self.pendingInvitationPlayerIdentifier = nil;
+    self.pendingInvitationMessage = @"Invitation declined.";
+    self.pendingInvitationStatus = @"No result or penalty was recorded.";
     self.localReady = NO;
+    [self renderPendingInvitation];
     [self refreshReadyButton];
 }
 
@@ -220,7 +252,9 @@
 - (void)showConnectionLostBeforeStart
 {
     self.preRaceFailureMessage = @"Connection lost before start. Lobby closed without a result.";
+    self.closeRequested = YES;
     [self applyPreRaceFailure];
+    [self closeLobbyIfPossible];
 }
 
 #pragma mark - Actions
@@ -232,13 +266,21 @@
         return;
     }
 
-    self.invitationLabel.text = @"Invitation sent. Waiting for your friend.";
-    self.statusLabel.text = @"Your friend can accept from Game Center.";
+    self.pendingInvitationPlayerIdentifier = nil;
+    self.pendingInvitationMessage = @"Invitation sent. Waiting for your friend.";
+    self.pendingInvitationStatus = @"Your friend can accept from Game Center.";
+    [self renderPendingInvitation];
+    [self refreshLobby];
     [self.transport beginFriendInvitationFromViewController:self];
 }
 
 - (void)toggleReady:(id)sender
 {
+    if (![self canChangeReady]) {
+        self.statusLabel.text = @"Waiting for a friend before you can get ready.";
+        return;
+    }
+
     BOOL requestedReady = !self.localReady;
     if (![self.coordinator updateLocalReady:requestedReady]) {
         self.statusLabel.text = @"Waiting for a friend before you can get ready.";
@@ -264,7 +306,250 @@
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+#pragma mark - FGChallengeTransportDelegate forwarding
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+       didAuthenticatePlayer:(NSString *)playerIdentifier
+{
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransport:didAuthenticatePlayer:)]) {
+        [self.forwardedTransportDelegate challengeTransport:transport didAuthenticatePlayer:playerIdentifier];
+    }
+    [self updateLobbyOnMainThread:^{
+        [self refreshLobby];
+    }];
+}
+
+- (void)challengeTransportDidBecomeUnavailable:(FGChallengeTransport *)transport error:(NSError *)error
+{
+    BOOL wasPreRace = [self isInPreRaceState];
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransportDidBecomeUnavailable:error:)]) {
+        [self.forwardedTransportDelegate challengeTransportDidBecomeUnavailable:transport error:error];
+    }
+    [self updateLobbyOnMainThread:^{
+        if (wasPreRace) {
+            [self showConnectionLostBeforeStart];
+        } else {
+            [self refreshLobby];
+        }
+    }];
+}
+
+- (void)challengeTransportDidAcceptInvitation:(FGChallengeTransport *)transport
+{
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransportDidAcceptInvitation:)]) {
+        [self.forwardedTransportDelegate challengeTransportDidAcceptInvitation:transport];
+    }
+    [self updateLobbyOnMainThread:^{
+        [self showIncomingInvitationFromPlayerIdentifier:nil];
+    }];
+}
+
+- (void)challengeTransportDidDeclineInvitation:(FGChallengeTransport *)transport
+{
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransportDidDeclineInvitation:)]) {
+        [self.forwardedTransportDelegate challengeTransportDidDeclineInvitation:transport];
+    }
+    [self updateLobbyOnMainThread:^{
+        [self showInvitationDeclined];
+        [self refreshLobby];
+    }];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+      didConnectPlayerWithIdentifier:(NSString *)playerIdentifier
+{
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransport:didConnectPlayerWithIdentifier:)]) {
+        [self.forwardedTransportDelegate challengeTransport:transport didConnectPlayerWithIdentifier:playerIdentifier];
+    }
+    [self updateLobbyOnMainThread:^{
+        self.pendingInvitationPlayerIdentifier = [playerIdentifier copy];
+        self.pendingInvitationMessage = playerIdentifier.length > 0
+            ? [NSString stringWithFormat:@"Connected with %@.", playerIdentifier]
+            : @"Connected with your friend.";
+        self.pendingInvitationStatus = @"Choose Ready when both players are connected.";
+        [self refreshLobby];
+    }];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+didChangePeerWithIdentifier:(NSString *)playerIdentifier
+                      state:(FGChallengeTransportPeerState)state
+{
+    BOOL wasPreRace = [self isInPreRaceState] &&
+        [playerIdentifier isEqualToString:self.coordinator.peerPlayerIdentifier];
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransport:didChangePeerWithIdentifier:state:)]) {
+        [self.forwardedTransportDelegate challengeTransport:transport didChangePeerWithIdentifier:playerIdentifier state:state];
+    }
+    [self updateLobbyOnMainThread:^{
+        if (state == FGChallengeTransportPeerStateDisconnected && wasPreRace) {
+            [self showConnectionLostBeforeStart];
+        } else {
+            [self refreshLobby];
+        }
+    }];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+           didReceivePacket:(FGChallengePacket *)packet
+        fromPlayerIdentifier:(NSString *)playerIdentifier
+{
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransport:didReceivePacket:fromPlayerIdentifier:)]) {
+        [self.forwardedTransportDelegate challengeTransport:transport
+                                           didReceivePacket:packet
+                                        fromPlayerIdentifier:playerIdentifier];
+    }
+    [self updateLobbyOnMainThread:^{
+        [self refreshLobby];
+    }];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport didFailWithError:(NSError *)error
+{
+    if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransport:didFailWithError:)]) {
+        [self.forwardedTransportDelegate challengeTransport:transport didFailWithError:error];
+    }
+    [self updateLobbyOnMainThread:^{
+        [self refreshLobby];
+    }];
+}
+
 #pragma mark - Presentation
+
+- (BOOL)isInPreRaceState
+{
+    FGChallengeCoordinatorState state = self.coordinator.state;
+    return state == FGChallengeCoordinatorStateInviting ||
+        state == FGChallengeCoordinatorStateLobby ||
+        state == FGChallengeCoordinatorStateReady;
+}
+
+- (void)updateLobbyOnMainThread:(dispatch_block_t)update
+{
+    if ([NSThread isMainThread]) {
+        update();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), update);
+    }
+}
+
+- (void)beginObservingChallengeState
+{
+    if (self.observingChallengeState) {
+        return;
+    }
+
+    [self.coordinator addObserver:self
+                        forKeyPath:@"state"
+                           options:NSKeyValueObservingOptionNew
+                           context:FGChallengeLobbyCoordinatorObservationContext];
+    [self.coordinator addObserver:self
+                        forKeyPath:@"peerPlayerIdentifier"
+                           options:NSKeyValueObservingOptionNew
+                           context:FGChallengeLobbyCoordinatorObservationContext];
+    [self.transport addObserver:self
+                      forKeyPath:@"available"
+                         options:NSKeyValueObservingOptionNew
+                         context:FGChallengeLobbyTransportObservationContext];
+    [self.transport addObserver:self
+                      forKeyPath:@"authenticated"
+                         options:NSKeyValueObservingOptionNew
+                         context:FGChallengeLobbyTransportObservationContext];
+    [self.transport addObserver:self
+                      forKeyPath:@"localPlayerIdentifier"
+                         options:NSKeyValueObservingOptionNew
+                         context:FGChallengeLobbyTransportObservationContext];
+    self.observingChallengeState = YES;
+}
+
+- (void)endObservingChallengeState
+{
+    if (!self.observingChallengeState) {
+        return;
+    }
+
+    [self.coordinator removeObserver:self forKeyPath:@"state" context:FGChallengeLobbyCoordinatorObservationContext];
+    [self.coordinator removeObserver:self forKeyPath:@"peerPlayerIdentifier" context:FGChallengeLobbyCoordinatorObservationContext];
+    [self.transport removeObserver:self forKeyPath:@"available" context:FGChallengeLobbyTransportObservationContext];
+    [self.transport removeObserver:self forKeyPath:@"authenticated" context:FGChallengeLobbyTransportObservationContext];
+    [self.transport removeObserver:self forKeyPath:@"localPlayerIdentifier" context:FGChallengeLobbyTransportObservationContext];
+    self.observingChallengeState = NO;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey,id> *)change
+                       context:(void *)context
+{
+    if (context != FGChallengeLobbyCoordinatorObservationContext &&
+        context != FGChallengeLobbyTransportObservationContext) {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        return;
+    }
+
+    BOOL isCoordinatorStateChange = context == FGChallengeLobbyCoordinatorObservationContext &&
+        [keyPath isEqualToString:@"state"];
+    FGChallengeCoordinatorState changedState = isCoordinatorStateChange
+        ? [change[NSKeyValueChangeNewKey] integerValue]
+        : self.coordinator.state;
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        FGChallengeLobbyViewController *strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            return;
+        }
+
+        FGChallengeCoordinatorState currentState = isCoordinatorStateChange
+            ? changedState
+            : strongSelf.coordinator.state;
+        BOOL lostPreRaceConnection = currentState == FGChallengeCoordinatorStateIdle &&
+            (strongSelf.observedCoordinatorState == FGChallengeCoordinatorStateInviting ||
+             strongSelf.observedCoordinatorState == FGChallengeCoordinatorStateLobby ||
+             strongSelf.observedCoordinatorState == FGChallengeCoordinatorStateReady);
+        strongSelf.observedCoordinatorState = currentState;
+
+        if (lostPreRaceConnection) {
+            [strongSelf showConnectionLostBeforeStart];
+        } else {
+            [strongSelf refreshLobby];
+        }
+    });
+}
+
+- (BOOL)canChangeReady
+{
+    FGChallengeCoordinatorState state = self.coordinator.state;
+    return self.preRaceFailureMessage.length == 0 &&
+        self.transport.isAvailable &&
+        self.transport.isAuthenticated &&
+        self.coordinator.peerPlayerIdentifier.length > 0 &&
+        (state == FGChallengeCoordinatorStateLobby || state == FGChallengeCoordinatorStateReady);
+}
+
+- (void)renderPendingInvitation
+{
+    if (self.preRaceFailureMessage.length > 0) {
+        return;
+    }
+    if (self.pendingInvitationMessage.length > 0) {
+        self.invitationLabel.text = self.pendingInvitationMessage;
+        self.statusLabel.text = self.pendingInvitationStatus;
+    }
+}
+
+- (void)closeLobbyIfPossible
+{
+    if (!self.closeRequested || !self.isViewLoaded || self.view.window == nil) {
+        return;
+    }
+
+    if (self.presentingViewController != nil) {
+        self.closeRequested = NO;
+        [self dismissViewControllerAnimated:YES completion:nil];
+    } else if (self.navigationController != nil && self.navigationController.topViewController == self) {
+        self.closeRequested = NO;
+        [self.navigationController popViewControllerAnimated:YES];
+    }
+}
 
 - (UILabel *)labelWithText:(NSString *)text color:(UIColor *)color font:(UIFont *)font
 {
@@ -323,12 +608,13 @@
 
     if (!gameCenterReady) {
         self.statusLabel.text = @"Game Center unavailable.";
-        self.readyButton.enabled = NO;
     } else if (self.coordinator.peerPlayerIdentifier.length > 0) {
         self.invitationLabel.text = [NSString stringWithFormat:@"Racing %@.", self.coordinator.peerPlayerIdentifier];
-        self.readyButton.enabled = YES;
+    } else {
+        [self renderPendingInvitation];
     }
 
+    self.readyButton.enabled = [self canChangeReady];
     [self refreshReadyButton];
 }
 
