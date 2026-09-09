@@ -11,6 +11,11 @@
 #import "Scene.h"
 #import "Score.h"
 #import "BirdHangarViewController.h"
+#import "../../Challenge/FGChallengeCoordinator.h"
+#import "../../Challenge/FGChallengeLobbyViewController.h"
+#import "../../Challenge/FGChallengeRecordStore.h"
+#import "../../Challenge/FGChallengeResultVerifier.h"
+#import "../../Challenge/FGChallengeTransport.h"
 
 @interface ViewController ()
 @property (strong, nonatomic) SKView *gameView;
@@ -21,6 +26,7 @@
 @property (strong, nonatomic) UILabel *currentScore;
 @property (strong, nonatomic) UILabel *bestScoreLabel;
 @property (strong, nonatomic) UIButton *btnHangar;
+@property (strong, nonatomic) UIButton *btnChallengeFriend;
 
 @end
 
@@ -337,6 +343,32 @@
              forControlEvents:UIControlEventTouchUpInside];
     [self.gameOverView addSubview:self.btnHangar];
 
+    self.btnChallengeFriend = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnChallengeFriend.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnChallengeFriend.accessibilityLabel = @"Challenge Friend";
+    [self.btnChallengeFriend setTitle:@"CHALLENGE FRIEND"
+                             forState:UIControlStateNormal];
+    [self.btnChallengeFriend setTitleColor:[UIColor whiteColor]
+                                  forState:UIControlStateNormal];
+    self.btnChallengeFriend.titleLabel.font =
+        [UIFont boldSystemFontOfSize:13.0];
+    self.btnChallengeFriend.backgroundColor =
+        [UIColor colorWithRed:0.16
+                        green:0.44
+                         blue:0.62
+                        alpha:0.96];
+    self.btnChallengeFriend.layer.cornerRadius = 11.0;
+    self.btnChallengeFriend.layer.borderWidth = 1.0;
+    self.btnChallengeFriend.layer.borderColor =
+        [UIColor colorWithRed:0.30
+                        green:0.88
+                         blue:1.0
+                        alpha:0.85].CGColor;
+    [self.btnChallengeFriend addTarget:self
+                                 action:@selector(challengeFriendFunc:)
+                       forControlEvents:UIControlEventTouchUpInside];
+    [self.gameOverView addSubview:self.btnChallengeFriend];
+
     UILayoutGuide *safeArea = rootView.safeAreaLayoutGuide;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -452,9 +484,17 @@
 
         [self.btnHangar.topAnchor constraintEqualToAnchor:medalPlate.bottomAnchor
                                                  constant:14.0],
-        [self.btnHangar.centerXAnchor constraintEqualToAnchor:self.gameOverView.centerXAnchor],
-        [self.btnHangar.widthAnchor constraintEqualToConstant:170.0],
-        [self.btnHangar.heightAnchor constraintEqualToConstant:42.0]
+        [self.btnHangar.leadingAnchor constraintEqualToAnchor:self.gameOverView.leadingAnchor
+                                                     constant:20.0],
+        [self.btnHangar.widthAnchor constraintEqualToConstant:132.0],
+        [self.btnHangar.heightAnchor constraintEqualToConstant:42.0],
+
+        [self.btnChallengeFriend.topAnchor constraintEqualToAnchor:medalPlate.bottomAnchor
+                                                           constant:14.0],
+        [self.btnChallengeFriend.trailingAnchor constraintEqualToAnchor:self.gameOverView.trailingAnchor
+                                                               constant:-20.0],
+        [self.btnChallengeFriend.widthAnchor constraintEqualToConstant:132.0],
+        [self.btnChallengeFriend.heightAnchor constraintEqualToConstant:42.0]
     ]];
 }
 
@@ -580,6 +620,43 @@
 }
 
 #pragma mark - Bird Hangar
+
+- (void)challengeFriendFunc:(id)sender
+{
+    if (self.presentedViewController != nil) {
+        return;
+    }
+
+    GKLocalPlayer *localPlayer = [GKLocalPlayer localPlayer];
+    if (!localPlayer.isAuthenticated || localPlayer.gamePlayerID.length == 0) {
+        [self authenticateGameCenterPlayer];
+        return;
+    }
+
+    FGChallengeTransport *transport = [[FGChallengeTransport alloc] init];
+    [transport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID
+                                                   error:nil];
+
+    FGChallengeCoordinator *coordinator =
+        [[FGChallengeCoordinator alloc]
+            initWithTransport:transport
+            resultVerifier:[[FGChallengeResultVerifier alloc] init]
+            recordStore:[[FGChallengeRecordStore alloc] init]
+            localPlayerIdentifier:transport.localPlayerIdentifier];
+    FGChallengeLobbyViewController *lobby =
+        [[FGChallengeLobbyViewController alloc]
+            initWithCoordinator:coordinator
+            transport:transport];
+
+    if (lobby == nil) {
+        return;
+    }
+
+    lobby.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:lobby
+                       animated:YES
+                     completion:nil];
+}
 
 - (void)hangarFunc:(id)sender
 {
@@ -729,5 +806,4 @@
 }
 
 @end
-
 

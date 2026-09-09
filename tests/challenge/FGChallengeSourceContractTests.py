@@ -17,6 +17,8 @@ LOBBY_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeLobbyViewContr
 LOBBY_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeLobbyViewController.m"
 RESULTS_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewController.h"
 RESULTS_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewController.m"
+ROOT_VIEW_CONTROLLER_HEADER = REPOSITORY_ROOT / "spritybird/Classes/Controllers/ViewController.h"
+ROOT_VIEW_CONTROLLER_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Classes/Controllers/ViewController.m"
 PROTECTED_CLASSIC_HASHES = {
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "50c6f4542d0a849f1122dcee726280bd867b049fd651dbd8b5e0df4ade2bc4f9",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
@@ -26,6 +28,31 @@ PROTECTED_CLASSIC_HASHES = {
 
 
 class FGChallengeSourceContractTests(unittest.TestCase):
+    def test_root_menu_surfaces_challenge_friend_and_routes_to_lobby(self):
+        """Catches a Challenge lobby that cannot be reached from the home flow."""
+        self.assertTrue(ROOT_VIEW_CONTROLLER_HEADER.is_file(), "ViewController.h must exist")
+        self.assertTrue(ROOT_VIEW_CONTROLLER_IMPLEMENTATION.is_file(), "ViewController.m must exist")
+
+        header = ROOT_VIEW_CONTROLLER_HEADER.read_text(encoding="utf-8")
+        implementation = ROOT_VIEW_CONTROLLER_IMPLEMENTATION.read_text(encoding="utf-8")
+        source = header + "\n" + implementation
+
+        self.assertIn("FGChallengeLobbyViewController.h", implementation)
+        self.assertIn("Challenge Friend", source)
+        self.assertIn("challengeFriendFunc:", implementation)
+        self.assertIn("@selector(challengeFriendFunc:)", implementation)
+
+        challenge_action = re.search(
+            r"-\s*\(void\)challengeFriendFunc:\(id\)sender\s*\{(?P<body>.*?)"
+            r"(?=\n-\s*\(void\)hangarFunc:)",
+            implementation,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(challenge_action, "root menu must expose a Challenge Friend action")
+        self.assertIn("FGChallengeLobbyViewController", challenge_action.group("body"))
+        self.assertIn("initWithCoordinator", challenge_action.group("body"))
+        self.assertIn("presentViewController", challenge_action.group("body"))
+
     def test_ghost_renderer_is_visual_only(self):
         self.assertTrue(HEADER.is_file(), "FGChallengeGhostRenderer.h must exist")
         self.assertTrue(IMPLEMENTATION.is_file(), "FGChallengeGhostRenderer.m must exist")
