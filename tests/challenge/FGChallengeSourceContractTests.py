@@ -47,6 +47,12 @@ CHALLENGE_TEST_IMPLEMENTATIONS = (
 )
 APPLICATION_SOURCES_PHASE = "82C6A08B18A6F53400FEBE9B"
 TEST_SOURCES_PHASE = "82C6A0AC18A6F53400FEBE9B"
+APPLICATION_TARGET = "82C6A08E18A6F53400FEBE9B"
+TEST_TARGET = "82C6A0AF18A6F53400FEBE9B"
+SOURCE_ROOT_GROUP = "spritybird"
+TEST_ROOT_GROUP = "spritybird Tests"
+CHALLENGE_GROUP = "Challenge"
+CHALLENGE_TESTS_GROUP = "Challenge Tests"
 PROTECTED_CLASSIC_HASHES = {
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "50c6f4542d0a849f1122dcee726280bd867b049fd651dbd8b5e0df4ade2bc4f9",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
@@ -62,10 +68,13 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         project = PBX_PROJECT.read_text(encoding="utf-8")
 
         file_references = {
-            match.group("name"): match.group("identifier")
+            match.group("name"): {
+                "identifier": match.group("identifier"),
+                "path": match.group("path").strip('"'),
+            }
             for match in re.finditer(
                 r"^\s*(?P<identifier>[A-F0-9]{24}) /\* (?P<name>[^*]+) \*/ = "
-                r"\{isa = PBXFileReference;.*?\};$",
+                r"\{isa = PBXFileReference;.*?\bpath = (?P<path>[^;]+);.*?\};$",
                 project,
                 re.MULTILINE,
             )
@@ -92,26 +101,69 @@ class FGChallengeSourceContractTests(unittest.TestCase):
                 re.findall(r"^\s*([A-F0-9]{24}) /\* [^*]+ in Sources \*/,", phase_match.group("body"), re.MULTILINE)
             )
 
-        challenge_group = re.search(
-            r"^\s*[A-F0-9]{24} /\* Challenge \*/ = \{(?P<body>.*?)^\s*\};",
-            project,
-            re.MULTILINE | re.DOTALL,
+        def group_details(name):
+            group_match = re.search(
+                rf"^\s*(?P<identifier>[A-F0-9]{{24}}) /\* {re.escape(name)} \*/ = \{{"
+                rf"(?P<body>.*?)^\s*\}};",
+                project,
+                re.MULTILINE | re.DOTALL,
+            )
+            self.assertIsNotNone(group_match, f"{name} must appear in a project group")
+            path_match = re.search(r"^\s*path = (?P<path>[^;]+);$", group_match.group("body"), re.MULTILINE)
+            self.assertIsNotNone(path_match, f"{name} must have a group path")
+            return (
+                group_match.group("identifier"),
+                path_match.group("path").strip('"'),
+                set(re.findall(r"^\s*([A-F0-9]{24}) /\* [^*]+ \*/,", group_match.group("body"), re.MULTILINE)),
+            )
+
+        _, _, source_root_members = group_details(SOURCE_ROOT_GROUP)
+        _, _, test_root_members = group_details(TEST_ROOT_GROUP)
+        challenge_group_identifier, challenge_group_path, challenge_group_members = group_details(CHALLENGE_GROUP)
+        challenge_tests_group_identifier, challenge_tests_group_path, challenge_tests_group_members = group_details(
+            CHALLENGE_TESTS_GROUP
         )
-        self.assertIsNotNone(challenge_group, "Challenge files must appear in a project group")
-        challenge_group_members = set(
-            re.findall(r"^\s*([A-F0-9]{24}) /\* [^*]+ \*/,", challenge_group.group("body"), re.MULTILINE)
+        self.assertIn(challenge_group_identifier, source_root_members, "Challenge must be a child of the spritybird group")
+        self.assertEqual("Challenge", challenge_group_path)
+        self.assertIn(
+            challenge_tests_group_identifier,
+            test_root_members,
+            "Challenge Tests must be a child of the spritybird Tests group",
+        )
+        self.assertEqual("../tests/challenge", challenge_tests_group_path)
+
+        def native_target_build_phases(identifier, name):
+            target_match = re.search(
+                rf"^\s*{identifier} /\* {re.escape(name)} \*/ = \{{(?P<body>.*?)^\s*\}};",
+                project,
+                re.MULTILINE | re.DOTALL,
+            )
+            self.assertIsNotNone(target_match, f"{name} target must exist")
+            self.assertIn("isa = PBXNativeTarget;", target_match.group("body"))
+            return set(re.findall(r"^\s*([A-F0-9]{24}) /\* [^*]+ \*/,", target_match.group("body"), re.MULTILINE))
+
+        self.assertIn(
+            APPLICATION_SOURCES_PHASE,
+            native_target_build_phases(APPLICATION_TARGET, "Flappy Gratata"),
+            "application Sources phase must be attached to the Flappy Gratata target",
+        )
+        self.assertIn(
+            TEST_SOURCES_PHASE,
+            native_target_build_phases(TEST_TARGET, "Flappy GratataTests"),
+            "test Sources phase must be attached to the Flappy GratataTests target",
         )
 
         for filename in CHALLENGE_HEADERS + CHALLENGE_IMPLEMENTATIONS:
             self.assertIn(filename, file_references, f"{filename} needs a PBX file reference")
+            self.assertEqual(filename, file_references[filename]["path"], f"{filename} needs its own PBX path")
             self.assertIn(
-                file_references[filename],
+                file_references[filename]["identifier"],
                 challenge_group_members,
                 f"{filename} must appear in the Challenge group",
             )
 
         for filename in CHALLENGE_IMPLEMENTATIONS:
-            file_reference = file_references[filename]
+            file_reference = file_references[filename]["identifier"]
             matching_build_files = {
                 identifier for identifier, referenced_file in build_files.items() if referenced_file == file_reference
             }
@@ -123,7 +175,9 @@ class FGChallengeSourceContractTests(unittest.TestCase):
 
         for filename in CHALLENGE_TEST_IMPLEMENTATIONS:
             self.assertIn(filename, file_references, f"{filename} needs a PBX file reference")
-            file_reference = file_references[filename]
+            self.assertEqual(filename, file_references[filename]["path"], f"{filename} needs its own PBX path")
+            file_reference = file_references[filename]["identifier"]
+            self.assertIn(file_reference, challenge_tests_group_members, f"{filename} must appear in Challenge Tests")
             matching_build_files = {
                 identifier for identifier, referenced_file in build_files.items() if referenced_file == file_reference
             }
