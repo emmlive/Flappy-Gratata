@@ -1,6 +1,7 @@
 #import "FGChallengeLobbyViewController.h"
 
 #import "FGChallengeCoordinator.h"
+#import "FGChallengePacket.h"
 #import "FGChallengeTransport.h"
 
 static void *FGChallengeLobbyCoordinatorObservationContext = &FGChallengeLobbyCoordinatorObservationContext;
@@ -405,11 +406,17 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
 
 - (void)challengeTransport:(FGChallengeTransport *)transport didFailWithError:(NSError *)error
 {
+    BOOL isUnsupportedPacketVersion = [error.domain isEqualToString:FGChallengePacketErrorDomain] &&
+        error.code == FGChallengePacketErrorUnsupportedVersion;
     if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransport:didFailWithError:)]) {
         [self.forwardedTransportDelegate challengeTransport:transport didFailWithError:error];
     }
     [self updateLobbyOnMainThread:^{
-        [self refreshLobby];
+        if (isUnsupportedPacketVersion) {
+            [self showVersionMismatch];
+        } else {
+            [self refreshLobby];
+        }
     }];
 }
 

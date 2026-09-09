@@ -202,6 +202,18 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("FGChallengeCoordinatorStateLobby", implementation)
         self.assertIn("FGChallengeCoordinatorStateReady", implementation)
 
+        version_failure_handler = re.search(
+            r"-\s*\(void\)challengeTransport:\(FGChallengeTransport \*\)transport\s+"
+            r"didFailWithError:\(NSError \*\)error\s*\{(?P<body>.*?)\n\}",
+            implementation,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(version_failure_handler, "lobby must observe transport failures")
+        self.assertIn('"FGChallengePacket.h"', implementation)
+        self.assertIn("FGChallengePacketErrorDomain", version_failure_handler.group("body"))
+        self.assertIn("FGChallengePacketErrorUnsupportedVersion", version_failure_handler.group("body"))
+        self.assertIn("showVersionMismatch", version_failure_handler.group("body"))
+
         for required_copy in (
             "Invite Friend",
             "Ready",
