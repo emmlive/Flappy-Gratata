@@ -47,6 +47,8 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
 @property (nonatomic, assign) BOOL resultsPresented;
 @property (nonatomic, assign) BOOL appBackgrounded;
 
+- (void)exitChallengeToHome;
+
 @end
 
 @implementation FGChallengeLobbyViewController
@@ -679,9 +681,35 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
         recordStore:self.coordinator.recordStore
         coordinator:self.coordinator
         rematchContractProvider:nil];
+    __weak typeof(self) weakSelf = self;
+    results.exitToHomeHandler = ^{
+        [weakSelf exitChallengeToHome];
+    };
     results.modalPresentationStyle = UIModalPresentationFullScreen;
     UIViewController *presenter = self.raceViewController ?: self;
     [presenter presentViewController:results animated:YES completion:nil];
+}
+
+- (void)exitChallengeToHome
+{
+    [self.displayLink invalidate];
+    self.displayLink = nil;
+    self.displayLinkTarget = nil;
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [self endObservingChallengeState];
+
+    if ([self.raceViewController.view isKindOfClass:[SKView class]]) {
+        [(SKView *)self.raceViewController.view presentScene:nil];
+    }
+    self.raceScene = nil;
+    [self.transport disconnect];
+
+    UIViewController *homeViewController = self.presentingViewController;
+    if (homeViewController != nil) {
+        [homeViewController dismissViewControllerAnimated:YES completion:nil];
+    } else if (self.navigationController != nil) {
+        [self.navigationController popToRootViewControllerAnimated:YES];
+    }
 }
 
 - (BOOL)canChangeReady

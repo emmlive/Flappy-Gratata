@@ -14,16 +14,27 @@ FOUNDATION_EXPORT const NSTimeInterval FGChallengeCountdownSeconds;
 
 FOUNDATION_EXPORT NSString * const FGChallengeGameplayRulesetVersion;
 FOUNDATION_EXPORT NSString * const FGChallengeProtocolVersion;
+FOUNDATION_EXPORT NSString * const FGChallengeCourseGenerationVersion1;
 
 // Challenge-owned copies of the protected Classic gameplay contract.  They
 // are intentionally declared here so race construction and compatibility
 // negotiation consume one immutable source without importing Classic files.
-FOUNDATION_EXPORT const CGFloat FGChallengeProtectedGravity;
-FOUNDATION_EXPORT const CGFloat FGChallengeProtectedBirdMass;
-FOUNDATION_EXPORT const CGFloat FGChallengeProtectedFlapImpulse;
-FOUNDATION_EXPORT const CGFloat FGChallengeProtectedGapHeight;
-FOUNDATION_EXPORT const CGFloat FGChallengeProtectedCourseSpeedPointsPerSecond;
+FOUNDATION_EXPORT const CGFloat FGChallengeBackgroundScrollSpeed;
+FOUNDATION_EXPORT const CGFloat FGChallengeGravity;
+FOUNDATION_EXPORT const CGSize FGChallengeBirdCollisionSize;
+FOUNDATION_EXPORT const CGFloat FGChallengeBirdMass;
+FOUNDATION_EXPORT const CGFloat FGChallengeBirdFlapImpulse;
+FOUNDATION_EXPORT const CGFloat FGChallengeBirdFlapAnimationFrameSeconds;
+FOUNDATION_EXPORT const CGFloat FGChallengeBirdRotationVelocityScale;
+FOUNDATION_EXPORT const NSInteger FGChallengeCourseFirstObstaclePadding;
+FOUNDATION_EXPORT const NSInteger FGChallengeCourseObstacleInterval;
+FOUNDATION_EXPORT const NSInteger FGChallengeCourseMinimumObstacleHeight;
+FOUNDATION_EXPORT const NSInteger FGChallengeCourseMaximumObstacleHeight;
+FOUNDATION_EXPORT const NSInteger FGChallengeCourseGapHeight;
+FOUNDATION_EXPORT const CGFloat FGChallengeCourseSpeedPointsPerSecond;
 
+FOUNDATION_EXPORT NSData *FGChallengeCanonicalCompatibilityData(void);
+FOUNDATION_EXPORT NSString *FGChallengeFingerprintForCompatibilityData(NSData *canonicalData);
 FOUNDATION_EXPORT NSString *FGChallengeCompatibilityFingerprint(void);
 
 FOUNDATION_EXPORT BOOL FGChallengeOutcomeIsCompetitive(FGChallengeOutcome outcome);

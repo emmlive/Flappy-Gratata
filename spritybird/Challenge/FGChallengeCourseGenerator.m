@@ -2,15 +2,6 @@
 
 #import <math.h>
 
-NSString * const FGChallengeCourseGenerationVersion1 = @"course-v1";
-
-const NSInteger FGChallengeCourseFirstObstaclePadding = 100;
-const NSInteger FGChallengeCourseObstacleInterval = 130;
-const NSInteger FGChallengeCourseMinimumObstacleHeight = 60;
-const NSInteger FGChallengeCourseMaximumObstacleHeight = 180;
-const NSInteger FGChallengeCourseGapHeight = 120;
-const CGFloat FGChallengeCourseSpeedPointsPerSecond = 180.0;
-
 @interface FGChallengeObstacleDescriptor ()
 
 @property (nonatomic, assign, readwrite) NSUInteger index;

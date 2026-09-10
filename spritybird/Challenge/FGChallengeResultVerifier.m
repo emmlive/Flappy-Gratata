@@ -88,10 +88,10 @@ static NSString * const FGChallengeFinalRecordElapsedTimeKey = @"elapsedTime";
     if (localDisconnected && remoteDisconnected) {
         return [self verifiedResultWithOutcome:FGChallengeOutcomeVoid];
     }
-    if (localDisconnected && localDisconnectDuration > contract.reconnectGraceSeconds) {
+    if (localDisconnected && localDisconnectDuration >= contract.reconnectGraceSeconds) {
         return [self verifiedResultWithOutcome:FGChallengeOutcomeLoss];
     }
-    if (remoteDisconnected && remoteDisconnectDuration > contract.reconnectGraceSeconds) {
+    if (remoteDisconnected && remoteDisconnectDuration >= contract.reconnectGraceSeconds) {
         return [self verifiedResultWithOutcome:FGChallengeOutcomeWin];
     }
     if (localDisconnected || remoteDisconnected) {

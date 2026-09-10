@@ -9,11 +9,13 @@
 #import "FGChallengeTransport.h"
 
 #import <math.h>
+#import <float.h>
 
 static NSString * const FGChallengeCoordinatorReasonResultDisagreement = @"result-disagreement";
 static NSString * const FGChallengeCoordinatorReasonBothDisconnected = @"both-players-disconnected";
 static NSString * const FGChallengeCoordinatorReasonLocalForfeit = @"local-reconnect-grace-expired";
 static NSString * const FGChallengeCoordinatorReasonRemoteForfeit = @"remote-reconnect-grace-expired";
+static NSString * const FGChallengeCoordinatorReasonVerificationTimeout = @"verification-timeout";
 
 static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeContainers)
 {
@@ -110,6 +112,9 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
 @property (nonatomic, assign) FGChallengeOutcome remoteDerivedOutcome;
 @property (nonatomic, assign) BOOL localRematchRequested;
 @property (nonatomic, assign) BOOL remoteRematchRequested;
+@property (nonatomic, strong) NSDate *verificationDeadline;
+@property (nonatomic, assign, readwrite) NSTimeInterval localDisconnectDurationSeconds;
+@property (nonatomic, assign, readwrite) NSTimeInterval maximumAllowedFinalElapsedTime;
 @end
 
 @implementation FGChallengeCoordinator
@@ -131,6 +136,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
         _state = FGChallengeCoordinatorStateIdle;
         _outcome = FGChallengeOutcomeVoid;
         _nextLocalSequenceNumber = 1;
+        _maximumAllowedFinalElapsedTime = DBL_MAX;
         _lastRemoteSequenceByStream = [NSMutableDictionary dictionary];
         transport.delegate = self;
     }
@@ -139,8 +145,14 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
 
 - (BOOL)activateNetworkSession
 {
-    if (self.networkSessionActive || self.state != FGChallengeCoordinatorStateIdle ||
-        !self.transport.isAvailable || !self.transport.isAuthenticated) {
+    if (!self.transport.isAvailable || !self.transport.isAuthenticated) {
+        return NO;
+    }
+    if (self.networkSessionActive) {
+        return YES;
+    }
+    if (self.state != FGChallengeCoordinatorStateIdle &&
+        self.state != FGChallengeCoordinatorStateInviting) {
         return NO;
     }
     self.networkSessionActive = YES;
@@ -256,6 +268,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
         return NO;
     }
     self.localDisconnectDate = date;
+    self.localDisconnectDurationSeconds = 0.0;
     return [self resolveBothDisconnectIfNeeded];
 }
 
@@ -293,16 +306,32 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     if (![self canHandleRaceConnectivityAtDate:date]) {
         return NO;
     }
+    if (self.localDisconnectDate != nil) {
+        self.localDisconnectDurationSeconds = MAX(self.localDisconnectDurationSeconds,
+                                                  MAX(0.0, [date timeIntervalSinceDate:self.localDisconnectDate]));
+    }
+    if (self.state == FGChallengeCoordinatorStateVerifying) {
+        if (self.verificationDeadline != nil &&
+            [date compare:self.verificationDeadline] != NSOrderedAscending) {
+            [self finishUnverifiedVerificationTimeout];
+        }
+        return YES;
+    }
     if ([self disconnectHasExceededGrace:self.localDisconnectDate atDate:date]) {
-        [self enterForfeitWithOutcome:FGChallengeOutcomeLoss reason:FGChallengeCoordinatorReasonLocalForfeit];
+        [self enterForfeitWithOutcome:FGChallengeOutcomeLoss
+                               reason:FGChallengeCoordinatorReasonLocalForfeit
+                               atDate:date];
         return YES;
     }
     if ([self disconnectHasExceededGrace:self.peerDisconnectDate atDate:date]) {
-        [self enterForfeitWithOutcome:FGChallengeOutcomeWin reason:FGChallengeCoordinatorReasonRemoteForfeit];
+        [self enterForfeitWithOutcome:FGChallengeOutcomeWin
+                               reason:FGChallengeCoordinatorReasonRemoteForfeit
+                               atDate:date];
         return YES;
     }
     if (self.state == FGChallengeCoordinatorStateFinishWindow && [date compare:self.finishWindowDeadline] != NSOrderedAscending) {
         self.state = FGChallengeCoordinatorStateVerifying;
+        self.verificationDeadline = [self.finishWindowDeadline dateByAddingTimeInterval:self.activeContract.reconnectGraceSeconds];
         [self attemptNetworkVerification];
     }
     return YES;
@@ -435,8 +464,11 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     self.localReady = NO;
     self.remoteReady = NO;
     self.finishWindowDeadline = nil;
+    self.verificationDeadline = nil;
     self.localDisconnectDate = nil;
     self.peerDisconnectDate = nil;
+    self.localDisconnectDurationSeconds = 0.0;
+    self.maximumAllowedFinalElapsedTime = DBL_MAX;
     self.lastPeerPacket = nil;
     self.hasPendingForfeit = NO;
     self.outcome = FGChallengeOutcomeVoid;
@@ -500,7 +532,8 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
                       score:(NSInteger)score
 {
     (void)raceScene;
-    if (![self canConsumeSceneEvent] || score < 0 || (NSUInteger)score > progressCheckpoint ||
+    if (self.latestLocalFinalRecord != nil || ![self canConsumeSceneEvent] ||
+        score < 0 || (NSUInteger)score > progressCheckpoint ||
         progressCheckpoint < self.localProgressCheckpoint || score < self.localScore) {
         return;
     }
@@ -520,7 +553,7 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
     FGChallengePacket *packet;
 
     (void)raceScene;
-    if (!self.networkSessionActive || ![self canConsumeSceneEvent] ||
+    if (self.latestLocalFinalRecord != nil || !self.networkSessionActive || ![self canConsumeSceneEvent] ||
         !isfinite(normalizedBirdY) || normalizedBirdY < 0.0 || normalizedBirdY > 1.0 ||
         !isfinite(motionHint) || motionHint < -1.0 || motionHint > 1.0 ||
         !isfinite(elapsedTime) || elapsedTime < 0.0 || score < 0 ||
@@ -559,7 +592,8 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
     if (self.latestLocalFinalRecord != nil || ![self canConsumeSceneEvent]) {
         return;
     }
-    snapshot = [self immutableSceneFinalRecordSnapshot:finalRecord];
+    snapshot = [self localFinalRecordByApplyingObservedConnectivity:
+                [self immutableSceneFinalRecordSnapshot:finalRecord]];
     if (![self sceneFinalRecordMatchesActiveContract:snapshot]) {
         return;
     }
@@ -598,7 +632,9 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
     }
     if (state == FGChallengeTransportPeerStateConnected) {
         [self recordPeerReconnectedAtDate:[NSDate date]];
-    } else if (self.state == FGChallengeCoordinatorStateRacing || self.state == FGChallengeCoordinatorStateFinishWindow) {
+    } else if (self.state == FGChallengeCoordinatorStateRacing ||
+               self.state == FGChallengeCoordinatorStateFinishWindow ||
+               self.state == FGChallengeCoordinatorStateVerifying) {
         [self recordPeerDisconnectedAtDate:[NSDate date]];
     } else if (self.state != FGChallengeCoordinatorStateIdle && self.state != FGChallengeCoordinatorStateResults && self.state != FGChallengeCoordinatorStateVoided) {
         [self cancelPreRaceLobby];
@@ -631,7 +667,9 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
 {
     (void)transport;
     (void)error;
-    if (self.state == FGChallengeCoordinatorStateRacing || self.state == FGChallengeCoordinatorStateFinishWindow) {
+    if (self.state == FGChallengeCoordinatorStateRacing ||
+        self.state == FGChallengeCoordinatorStateFinishWindow ||
+        self.state == FGChallengeCoordinatorStateVerifying) {
         [self recordPeerDisconnectedAtDate:[NSDate date]];
     }
 }
@@ -818,6 +856,8 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
     if (packet.finalRecord != nil) {
         remoteFinalRecord = [self immutableSceneFinalRecordSnapshot:packet.finalRecord];
         if (![self finalRecord:remoteFinalRecord matchesPlayerIdentifier:self.peerPlayerIdentifier] ||
+            (isfinite(self.maximumAllowedFinalElapsedTime) &&
+             packet.timestamp > self.maximumAllowedFinalElapsedTime + 0.000001) ||
             [remoteFinalRecord[@"progressCheckpoint"] unsignedIntegerValue] != packet.progressCheckpoint ||
             [remoteFinalRecord[@"score"] integerValue] != packet.score ||
             fabs([remoteFinalRecord[@"elapsedTime"] doubleValue] - packet.timestamp) > 0.001 ||
@@ -918,8 +958,11 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
     self.localReady = YES;
     self.remoteReady = YES;
     self.finishWindowDeadline = nil;
+    self.verificationDeadline = nil;
     self.localDisconnectDate = nil;
     self.peerDisconnectDate = nil;
+    self.localDisconnectDurationSeconds = 0.0;
+    self.maximumAllowedFinalElapsedTime = DBL_MAX;
     self.lastPeerPacket = nil;
     self.lastAcceptedRemotePacket = nil;
     self.latestLocalFinalRecord = nil;
@@ -979,7 +1022,11 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
         return NO;
     }
     if (self.state == FGChallengeCoordinatorStateRacing) {
+        NSTimeInterval crashElapsedTime = [date timeIntervalSinceDate:self.activeContract.synchronizedStartDate];
         self.finishWindowDeadline = [date dateByAddingTimeInterval:self.activeContract.finishWindowSeconds];
+        if (isfinite(crashElapsedTime) && crashElapsedTime >= 0.0) {
+            self.maximumAllowedFinalElapsedTime = crashElapsedTime + self.activeContract.finishWindowSeconds;
+        }
         self.state = FGChallengeCoordinatorStateFinishWindow;
     }
     return YES;
@@ -991,6 +1038,24 @@ didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
            (self.state == FGChallengeCoordinatorStateRacing ||
             self.state == FGChallengeCoordinatorStateFinishWindow ||
             self.state == FGChallengeCoordinatorStateVerifying);
+}
+
+- (BOOL)isLocalPlayerDisconnected
+{
+    return self.localDisconnectDate != nil;
+}
+
+- (NSDictionary<NSString *, id> *)localFinalRecordByApplyingObservedConnectivity:(NSDictionary<NSString *, id> *)finalRecord
+{
+    if (finalRecord == nil) {
+        return nil;
+    }
+    NSMutableDictionary<NSString *, id> *canonicalRecord = [finalRecord mutableCopy];
+    canonicalRecord[@"disconnected"] = @(self.isLocalPlayerDisconnected);
+    canonicalRecord[@"disconnectDurationSeconds"] = self.isLocalPlayerDisconnected
+        ? @(self.localDisconnectDurationSeconds)
+        : @0;
+    return [self immutableSceneFinalRecordSnapshot:canonicalRecord];
 }
 
 - (BOOL)sceneFinalRecordMatchesActiveContract:(NSDictionary<NSString *, id> *)finalRecord
@@ -1036,6 +1101,8 @@ matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
            [elapsedTime isKindOfClass:[NSNumber class]] && isfinite(elapsedTime.doubleValue) && elapsedTime.doubleValue >= 0.0 &&
            score.unsignedIntegerValue <= progressCheckpoint.unsignedIntegerValue &&
            disconnectDurationSeconds.doubleValue <= elapsedTime.doubleValue &&
+           (!isfinite(self.maximumAllowedFinalElapsedTime) ||
+            elapsedTime.doubleValue <= self.maximumAllowedFinalElapsedTime + 0.000001) &&
            courseGenerator != nil &&
            progressCheckpoint.unsignedIntegerValue <= [courseGenerator maximumReachableProgressAtElapsedTime:elapsedTime.doubleValue] &&
            [raceIdentifier isEqualToString:self.activeContract.raceIdentifier] &&
@@ -1073,6 +1140,7 @@ matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
         self.resultVerified = YES;
         self.resultReason = FGChallengeCoordinatorReasonBothDisconnected;
         self.state = FGChallengeCoordinatorStateVoided;
+        self.verificationDeadline = nil;
         self.transport.reconnectAllowed = NO;
         [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:nil];
     }
@@ -1088,6 +1156,7 @@ matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
     }
     if (local) {
         self.localDisconnectDate = nil;
+        self.localDisconnectDurationSeconds = 0.0;
     } else {
         self.peerDisconnectDate = nil;
     }
@@ -1099,7 +1168,9 @@ matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
     return disconnectDate != nil && [date timeIntervalSinceDate:disconnectDate] >= self.activeContract.reconnectGraceSeconds;
 }
 
-- (void)enterForfeitWithOutcome:(FGChallengeOutcome)outcome reason:(NSString *)reason
+- (void)enterForfeitWithOutcome:(FGChallengeOutcome)outcome
+                         reason:(NSString *)reason
+                         atDate:(NSDate *)date
 {
     self.pendingForfeitOutcome = outcome;
     self.hasPendingForfeit = YES;
@@ -1107,6 +1178,7 @@ matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
     self.resultVerified = NO;
     self.resultReason = reason;
     self.state = FGChallengeCoordinatorStateVerifying;
+    self.verificationDeadline = [date dateByAddingTimeInterval:self.activeContract.reconnectGraceSeconds];
     self.transport.reconnectAllowed = NO;
 }
 
@@ -1139,7 +1211,19 @@ matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
     }
     return observedDisconnectDate != nil &&
            [forfeitingRecord[@"disconnected"] boolValue] &&
-           [forfeitingRecord[@"disconnectDurationSeconds"] doubleValue] > self.activeContract.reconnectGraceSeconds;
+           [forfeitingRecord[@"disconnectDurationSeconds"] doubleValue] >= self.activeContract.reconnectGraceSeconds;
+}
+
+- (void)finishUnverifiedVerificationTimeout
+{
+    self.outcome = FGChallengeOutcomeUnverified;
+    self.resultVerified = NO;
+    self.resultReason = FGChallengeCoordinatorReasonVerificationTimeout;
+    self.state = FGChallengeCoordinatorStateVoided;
+    self.verificationDeadline = nil;
+    self.hasPendingForfeit = NO;
+    self.transport.reconnectAllowed = NO;
+    [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:self.latestLocalFinalRecord];
 }
 
 - (BOOL)contractHasExpectedParticipants:(FGChallengeRaceContract *)contract
@@ -1195,6 +1279,11 @@ matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
     self.peerPlayerIdentifier = nil;
     self.localReady = NO;
     self.remoteReady = NO;
+    self.verificationDeadline = nil;
+    self.localDisconnectDate = nil;
+    self.peerDisconnectDate = nil;
+    self.localDisconnectDurationSeconds = 0.0;
+    self.maximumAllowedFinalElapsedTime = DBL_MAX;
     self.state = FGChallengeCoordinatorStateIdle;
 }
 

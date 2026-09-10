@@ -94,10 +94,10 @@ static FGChallengeVerifiedResult *FGChallengeVerify(NSDictionary<NSString *, id>
 
 - (void)testOnePlayerDisconnectingBeyondGraceForfeits
 {
-    FGChallengeVerifiedResult *localForfeit = FGChallengeVerify(FGChallengeFinalRecord(@"player-alpha", 42, 8, NO, YES, 5.01),
+    FGChallengeVerifiedResult *localForfeit = FGChallengeVerify(FGChallengeFinalRecord(@"player-alpha", 42, 8, NO, YES, 5.0),
                                                                  FGChallengeFinalRecord(@"player-bravo", 41, 7, NO, NO, 0.0));
     FGChallengeVerifiedResult *remoteForfeit = FGChallengeVerify(FGChallengeFinalRecord(@"player-alpha", 41, 7, NO, NO, 0.0),
-                                                                  FGChallengeFinalRecord(@"player-bravo", 42, 8, NO, YES, 5.01));
+                                                                  FGChallengeFinalRecord(@"player-bravo", 42, 8, NO, YES, 5.0));
 
     XCTAssertTrue(localForfeit.verified);
     XCTAssertEqual(localForfeit.localOutcome, FGChallengeOutcomeLoss);
@@ -210,10 +210,10 @@ static void FGTestExactVerifiedTieDraws(void)
 
 static void FGTestOnePlayerDisconnectingBeyondGraceForfeits(void)
 {
-    FGChallengeVerifiedResult *localForfeit = FGChallengeVerify(FGChallengeFinalRecord(@"player-alpha", 42, 8, NO, YES, 5.01),
+    FGChallengeVerifiedResult *localForfeit = FGChallengeVerify(FGChallengeFinalRecord(@"player-alpha", 42, 8, NO, YES, 5.0),
                                                                  FGChallengeFinalRecord(@"player-bravo", 41, 7, NO, NO, 0.0));
     FGChallengeVerifiedResult *remoteForfeit = FGChallengeVerify(FGChallengeFinalRecord(@"player-alpha", 41, 7, NO, NO, 0.0),
-                                                                  FGChallengeFinalRecord(@"player-bravo", 42, 8, NO, YES, 5.01));
+                                                                  FGChallengeFinalRecord(@"player-bravo", 42, 8, NO, YES, 5.0));
     FGRequire(localForfeit.verified && localForfeit.localOutcome == FGChallengeOutcomeLoss, @"local disconnect after grace forfeits");
     FGRequire(remoteForfeit.verified && remoteForfeit.localOutcome == FGChallengeOutcomeWin, @"remote disconnect after grace wins locally");
 }

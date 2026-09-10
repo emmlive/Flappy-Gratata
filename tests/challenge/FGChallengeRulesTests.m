@@ -39,7 +39,26 @@
     XCTAssertEqualObjects(FGChallengeGameplayRulesetVersion, @"rules-v1");
     XCTAssertEqualObjects(FGChallengeProtocolVersion, @"protocol-v2");
     XCTAssertEqualWithAccuracy(FGChallengeCountdownSeconds, 3.0, 0.000001);
-    XCTAssertEqualObjects(FGChallengeCompatibilityFingerprint(), @"fnv1a64:a382783814a387a5");
+    XCTAssertEqualObjects(FGChallengeCompatibilityFingerprint(), @"fnv1a64:db80311f695d8d1e");
+}
+
+- (void)testCompatibilityFingerprintChangesWhenCanonicalConfigurationMutates
+{
+    NSData *canonicalData = FGChallengeCanonicalCompatibilityData();
+    NSMutableData *mutatedData = [canonicalData mutableCopy];
+    uint8_t replacement = 'X';
+    [mutatedData replaceBytesInRange:NSMakeRange(mutatedData.length - 1, 1) withBytes:&replacement];
+
+    XCTAssertEqualObjects(FGChallengeCompatibilityFingerprint(),
+                          FGChallengeFingerprintForCompatibilityData(canonicalData));
+    XCTAssertEqualObjects([[NSString alloc] initWithData:canonicalData encoding:NSUTF8StringEncoding],
+                          @"challenge-v1|course=course-v1|rules=rules-v1|protocol=protocol-v2|background=0.000000|gravity=-9.800000|bird-width=26.000000|bird-height=18.000000|bird-mass=0.100000|flap=40.000000|flap-animation=0.200000|rotation-scale=0.000100|gap=120|first=100|interval=130|min=60|max=180|speed=180.000000|finish=3.000000|reconnect=5.000000");
+    XCTAssertNotEqualObjects(FGChallengeCompatibilityFingerprint(),
+                             FGChallengeFingerprintForCompatibilityData(mutatedData));
+    XCTAssertEqual(FGChallengeCourseGapHeight, 120);
+    XCTAssertEqual(FGChallengeCourseFirstObstaclePadding, 100);
+    XCTAssertEqual(FGChallengeCourseObstacleInterval, 130);
+    XCTAssertEqualWithAccuracy(FGChallengeCourseSpeedPointsPerSecond, 180.0, 0.000001);
 }
 
 - (void)testGreaterProgressWins
@@ -95,8 +114,31 @@ static void FGTestCanonicalCompatibilityFingerprintIsDerivedFromChallengeConstan
     FGRequire([FGChallengeGameplayRulesetVersion isEqualToString:@"rules-v1"], @"gameplay ruleset version is canonical");
     FGRequire([FGChallengeProtocolVersion isEqualToString:@"protocol-v2"], @"protocol version covers the ordered control packet contract");
     FGRequire(fabs(FGChallengeCountdownSeconds - 3.0) < 0.000001, @"countdown is three seconds");
-    FGRequire([FGChallengeCompatibilityFingerprint() isEqualToString:@"fnv1a64:a382783814a387a5"],
+    FGRequire([FGChallengeCompatibilityFingerprint() isEqualToString:@"fnv1a64:db80311f695d8d1e"],
               @"fingerprint is the hand-derived digest of the Challenge compatibility constants");
+}
+
+static void FGTestCompatibilityFingerprintChangesWhenCanonicalConfigurationMutates(void)
+{
+    NSData *canonicalData = FGChallengeCanonicalCompatibilityData();
+    NSMutableData *mutatedData = [canonicalData mutableCopy];
+    uint8_t replacement = 'X';
+
+    [mutatedData replaceBytesInRange:NSMakeRange(mutatedData.length - 1, 1) withBytes:&replacement];
+    FGRequire([FGChallengeCompatibilityFingerprint() isEqualToString:
+               FGChallengeFingerprintForCompatibilityData(canonicalData)],
+              @"production fingerprint is derived from canonical Challenge configuration data");
+    FGRequire([[[NSString alloc] initWithData:canonicalData encoding:NSUTF8StringEncoding]
+               isEqualToString:@"challenge-v1|course=course-v1|rules=rules-v1|protocol=protocol-v2|background=0.000000|gravity=-9.800000|bird-width=26.000000|bird-height=18.000000|bird-mass=0.100000|flap=40.000000|flap-animation=0.200000|rotation-scale=0.000100|gap=120|first=100|interval=130|min=60|max=180|speed=180.000000|finish=3.000000|reconnect=5.000000"],
+              @"canonical compatibility bytes include every protected Challenge course and physics value");
+    FGRequire(![FGChallengeCompatibilityFingerprint() isEqualToString:
+                FGChallengeFingerprintForCompatibilityData(mutatedData)],
+              @"mutating any canonical compatibility byte changes the negotiated fingerprint");
+    FGRequire(FGChallengeCourseGapHeight == 120 &&
+              FGChallengeCourseFirstObstaclePadding == 100 &&
+              FGChallengeCourseObstacleInterval == 130 &&
+              fabs(FGChallengeCourseSpeedPointsPerSecond - 180.0) < 0.000001,
+              @"course generator and scene consume the Rules-owned canonical course values");
 }
 
 static void FGTestGreaterProgressWins(void)
@@ -131,6 +173,7 @@ int main(void)
         FGTestFinishWindowIsThreeSeconds();
         FGTestReconnectGraceIsFiveSeconds();
         FGTestCanonicalCompatibilityFingerprintIsDerivedFromChallengeConstants();
+        FGTestCompatibilityFingerprintChangesWhenCanonicalConfigurationMutates();
         FGTestGreaterProgressWins();
         FGTestEqualProgressComparesScore();
         FGTestExactTieReturnsDraw();

@@ -38,6 +38,10 @@
 @property (nonatomic, strong) FGChallengeCoordinator *challengeCoordinator;
 @property (nonatomic, weak) FGChallengeLobbyViewController *challengeLobby;
 @property (nonatomic, assign) BOOL pendingChallengePresentation;
+@property (nonatomic, assign) BOOL pendingIncomingChallengeInvitation;
+@property (nonatomic, copy) NSString *pendingChallengePeerIdentifier;
+- (BOOL)presentChallengeLobbyForIncomingInvitation:(BOOL)incomingInvitation;
+- (void)presentPendingChallengeInvitationIfPossible;
 @end
 
 @implementation ViewController
@@ -537,6 +541,12 @@
     [self authenticateGameCenterPlayer];
 }
 
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [self presentPendingChallengeInvitationIfPossible];
+}
+
 - (BOOL)prefersStatusBarHidden
 {
     return YES;
@@ -648,11 +658,11 @@
     [self presentChallengeLobbyForIncomingInvitation:NO];
 }
 
-- (void)presentChallengeLobbyForIncomingInvitation:(BOOL)incomingInvitation
+- (BOOL)presentChallengeLobbyForIncomingInvitation:(BOOL)incomingInvitation
 {
     if (self.presentedViewController != nil || !self.challengeTransport.isAuthenticated ||
         self.challengeTransport.localPlayerIdentifier.length == 0) {
-        return;
+        return NO;
     }
     FGChallengeCoordinator *coordinator = [[FGChallengeCoordinator alloc]
         initWithTransport:self.challengeTransport
@@ -661,8 +671,10 @@
         localPlayerIdentifier:self.challengeTransport.localPlayerIdentifier];
     self.challengeCoordinator = coordinator;
     self.challengeTransport.delegate = self;
-    if (incomingInvitation) {
-        [coordinator beginInvitation];
+    if (![coordinator activateNetworkSession] ||
+        (incomingInvitation && ![coordinator beginInvitation])) {
+        self.challengeCoordinator = nil;
+        return NO;
     }
     FGChallengeLobbyViewController *lobby =
         [[FGChallengeLobbyViewController alloc]
@@ -670,13 +682,32 @@
             transport:self.challengeTransport];
 
     if (lobby == nil) {
-        return;
+        self.challengeCoordinator = nil;
+        return NO;
     }
     self.challengeLobby = lobby;
+    if (self.pendingChallengePeerIdentifier.length > 0) {
+        [(id<FGChallengeTransportDelegate>)coordinator challengeTransport:self.challengeTransport
+                                          didConnectPlayerWithIdentifier:self.pendingChallengePeerIdentifier];
+        self.pendingChallengePeerIdentifier = nil;
+    }
     lobby.modalPresentationStyle = UIModalPresentationFullScreen;
     [self presentViewController:lobby
                        animated:YES
                      completion:nil];
+    return YES;
+}
+
+- (void)presentPendingChallengeInvitationIfPossible
+{
+    if (!self.pendingIncomingChallengeInvitation || self.challengeLobby != nil ||
+        self.presentedViewController != nil) {
+        return;
+    }
+    if ([self presentChallengeLobbyForIncomingInvitation:YES]) {
+        self.pendingIncomingChallengeInvitation = NO;
+        self.pendingChallengePresentation = NO;
+    }
 }
 
 - (void)showChallengeGameCenterUnavailable
@@ -696,15 +727,23 @@
 - (void)challengeTransportDidAcceptInvitation:(FGChallengeTransport *)transport
 {
     (void)transport;
-    if (self.challengeLobby == nil && self.presentedViewController == nil) {
-        [self presentChallengeLobbyForIncomingInvitation:YES];
+    if (self.challengeLobby != nil) {
+        // The lobby is the transport delegate and has already consumed this
+        // callback before forwarding it here. Do not queue a duplicate invite.
+        return;
     }
+    self.pendingIncomingChallengeInvitation = YES;
+    [self presentPendingChallengeInvitationIfPossible];
 }
 
 - (void)challengeTransport:(FGChallengeTransport *)transport didConnectPlayerWithIdentifier:(NSString *)playerIdentifier
 {
-    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
-                                                    didConnectPlayerWithIdentifier:playerIdentifier];
+    if (self.challengeLobby == nil || self.challengeCoordinator == nil) {
+        self.pendingChallengePeerIdentifier = [playerIdentifier copy];
+    } else {
+        [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
+                                                        didConnectPlayerWithIdentifier:playerIdentifier];
+    }
 }
 
 - (void)challengeTransport:(FGChallengeTransport *)transport
@@ -806,6 +845,8 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
             }
 
             [self.challengeTransport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID error:nil];
+
+            [self presentPendingChallengeInvitationIfPossible];
 
             if (self.hasPendingGameCenterScore) {
                 int64_t pendingScore = self.pendingGameCenterScore;

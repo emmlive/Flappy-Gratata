@@ -3,6 +3,10 @@
 
 from pathlib import Path
 import re
+import subprocess
+import sys
+import tempfile
+import textwrap
 import unittest
 
 
@@ -64,6 +68,113 @@ PROTECTED_CLASSIC_HASHES = {
 
 
 class FGChallengeSourceContractTests(unittest.TestCase):
+    def test_race_scene_compiles_warning_clean_with_spritekit_contract(self):
+        """Catches undeclared Challenge symbols even when the iOS SDK is unavailable."""
+        if sys.platform != "darwin":
+            self.skipTest("Objective-C Foundation syntax regression requires macOS")
+
+        sdk = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        spritekit_contract = textwrap.dedent(
+            """
+            #import <Foundation/Foundation.h>
+            #import <AppKit/AppKit.h>
+            #import <CoreGraphics/CoreGraphics.h>
+            @class SKNode;
+            @protocol SKPhysicsContactDelegate <NSObject>
+            @end
+            @interface SKPhysicsBody : NSObject
+            @property (nonatomic, weak) SKNode *node;
+            @property (nonatomic, assign) CGVector velocity;
+            @property (nonatomic, assign) uint32_t categoryBitMask;
+            @property (nonatomic, assign) uint32_t contactTestBitMask;
+            @property (nonatomic, assign) CGFloat mass;
+            + (instancetype)bodyWithRectangleOfSize:(CGSize)size;
+            + (instancetype)bodyWithEdgeLoopFromRect:(CGRect)rect;
+            - (void)setVelocity:(CGVector)velocity;
+            - (void)applyImpulse:(CGVector)impulse;
+            @end
+            @interface SKNode : NSObject
+            @property (nonatomic, assign) CGPoint position;
+            @property (nonatomic, assign) CGFloat zPosition;
+            @property (nonatomic, assign) CGFloat zRotation;
+            @property (nonatomic, assign) CGFloat speed;
+            @property (nonatomic, copy) NSString *name;
+            @property (nonatomic, strong) SKPhysicsBody *physicsBody;
+            - (void)addChild:(SKNode *)node;
+            - (void)removeFromParent;
+            - (void)runAction:(id)action withKey:(NSString *)key;
+            @end
+            @interface SKPhysicsWorld : NSObject
+            @property (nonatomic, assign) CGVector gravity;
+            @property (nonatomic, weak) id<SKPhysicsContactDelegate> contactDelegate;
+            @end
+            @interface SKScene : SKNode
+            @property (nonatomic, assign, readonly) CGSize size;
+            @property (nonatomic, assign, readonly) CGRect frame;
+            @property (nonatomic, strong, readonly) SKPhysicsWorld *physicsWorld;
+            - (instancetype)initWithSize:(CGSize)size;
+            @end
+            @interface SKTexture : NSObject
+            + (instancetype)textureWithImageNamed:(NSString *)name;
+            @end
+            @interface SKAction : NSObject
+            + (instancetype)animateWithTextures:(NSArray<SKTexture *> *)textures timePerFrame:(NSTimeInterval)seconds;
+            + (instancetype)repeatActionForever:(SKAction *)action;
+            @end
+            @interface SKSpriteNode : SKNode
+            @property (nonatomic, assign) CGPoint anchorPoint;
+            @property (nonatomic, assign, readonly) CGSize size;
+            + (instancetype)spriteNodeWithImageNamed:(NSString *)name;
+            + (instancetype)spriteNodeWithTexture:(SKTexture *)texture;
+            @end
+            @interface SKLabelNode : SKNode
+            @property (nonatomic, assign) CGFloat fontSize;
+            @property (nonatomic, copy) NSString *text;
+            + (instancetype)labelNodeWithFontNamed:(NSString *)fontName;
+            @end
+            @interface SKPhysicsContact : NSObject
+            @property (nonatomic, strong, readonly) SKPhysicsBody *bodyA;
+            @property (nonatomic, strong, readonly) SKPhysicsBody *bodyB;
+            @end
+            """
+        )
+        with tempfile.TemporaryDirectory(prefix="fgchallenge-racescene-") as temporary_directory:
+            include_root = Path(temporary_directory)
+            spritekit_directory = include_root / "SpriteKit"
+            spritekit_directory.mkdir()
+            (spritekit_directory / "SpriteKit.h").write_text(spritekit_contract, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    "xcrun", "clang", "-fobjc-arc", "-fblocks", "-Wall", "-Wextra", "-Werror",
+                    "-fsyntax-only", f"-I{include_root}", f"-I{REPOSITORY_ROOT / 'spritybird/Challenge'}",
+                    "-isysroot", sdk, str(RACE_SCENE_IMPLEMENTATION),
+                ],
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_challenge_compatibility_configuration_has_one_definition(self):
+        """Catches a contract, course, or scene copy drifting from negotiated Rules values."""
+        rules_header = (REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeRules.h").read_text(encoding="utf-8")
+        rules_implementation = (REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeRules.m").read_text(encoding="utf-8")
+        contract_implementation = (REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeRaceContract.m").read_text(encoding="utf-8")
+        course_implementation = (REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeCourseGenerator.m").read_text(encoding="utf-8")
+        scene_implementation = RACE_SCENE_IMPLEMENTATION.read_text(encoding="utf-8")
+
+        self.assertIn("FGChallengeCourseGenerationVersion1", rules_header)
+        self.assertIn("FGChallengeCanonicalCompatibilityData", rules_implementation)
+        self.assertIn("courseGenerationVersion:FGChallengeCourseGenerationVersion1", contract_implementation)
+        self.assertIn("isEqualToString:FGChallengeCourseGenerationVersion1", contract_implementation)
+        self.assertNotIn("FGChallengeCanonicalCourseGenerationVersion", contract_implementation)
+        self.assertNotRegex(course_implementation, r"const (?:NSInteger|CGFloat) FGChallengeCourse")
+        self.assertNotRegex(scene_implementation, r"static const CGFloat FGChallengeRaceScene")
+
     def test_project_registers_challenge_sources_in_their_targets(self):
         """Catches Challenge code that is present on disk but omitted from an Xcode target."""
         self.assertTrue(PBX_PROJECT.is_file(), "project.pbxproj must exist")
@@ -262,17 +373,21 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertNotRegex(source, r'#import\s+[<"]GameKit/GameKit\.h[>"]')
         self.assertNotRegex(source, r'FGChallengeRecordStore|FGChallengeResultVerifier|FGChallengeTransport')
 
-        self.assertIn("FGChallengeCourseSpeedPointsPerSecond", implementation)
-        self.assertIn("FGChallengeRaceSceneGapHeight = 120.0", implementation)
-        self.assertIn("FGChallengeRaceSceneFirstObstaclePadding = 100.0", implementation)
-        self.assertIn("FGChallengeRaceSceneMinimumObstacleHeight = 60.0", implementation)
-        self.assertIn("FGChallengeRaceSceneBirdMass = 0.1", implementation)
-        self.assertIn("FGChallengeRaceSceneFlapImpulse = 40.0", implementation)
-        self.assertIn("FGChallengeRaceSceneFlapAnimationFrameSeconds = 0.2", implementation)
-        self.assertIn("CGSizeMake(26.0, 18.0)", implementation)
-        self.assertIn("mass = FGChallengeRaceSceneBirdMass", implementation)
-        self.assertIn("applyImpulse:CGVectorMake(0.0, FGChallengeRaceSceneFlapImpulse)", implementation)
-        self.assertIn("timePerFrame:FGChallengeRaceSceneFlapAnimationFrameSeconds", implementation)
+        for canonical_symbol in (
+            "FGChallengeCourseSpeedPointsPerSecond",
+            "FGChallengeCourseGapHeight",
+            "FGChallengeCourseFirstObstaclePadding",
+            "FGChallengeCourseMinimumObstacleHeight",
+            "FGChallengeBirdMass",
+            "FGChallengeBirdFlapImpulse",
+            "FGChallengeBirdFlapAnimationFrameSeconds",
+            "FGChallengeBirdCollisionSize",
+        ):
+            self.assertIn(canonical_symbol, implementation)
+        self.assertNotRegex(implementation, r"static const CGFloat FGChallengeRaceScene(?:GapHeight|FirstObstaclePadding|MinimumObstacleHeight|BirdMass|FlapImpulse|Gravity)")
+        self.assertIn("mass = FGChallengeBirdMass", implementation)
+        self.assertIn("applyImpulse:CGVectorMake(0.0, FGChallengeBirdFlapImpulse)", implementation)
+        self.assertIn("timePerFrame:FGChallengeBirdFlapAnimationFrameSeconds", implementation)
 
         self.assertIn("FGChallengeRaceSceneBackgroundCategory = 1u << 0", implementation)
         self.assertIn("background.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:", implementation)
@@ -404,6 +519,18 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("FGChallengeGhostRenderer", implementation)
         self.assertIn("FGChallengeResultsViewController", implementation)
         self.assertIn('forKeyPath:@"lastAcceptedRemotePacket"', implementation)
+        self.assertIn("exitChallengeToHome", implementation)
+        self.assertIn("results.exitToHomeHandler", implementation)
+        exit_action = re.search(
+            r"-\s*\(void\)exitChallengeToHome\s*\{(?P<body>.*?)(?=\n-\s*\()",
+            implementation,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(exit_action)
+        self.assertIn("[self.displayLink invalidate]", exit_action.group("body"))
+        self.assertIn("presentScene:nil", exit_action.group("body"))
+        self.assertIn("[self.transport disconnect]", exit_action.group("body"))
+        self.assertIn("homeViewController dismissViewControllerAnimated", exit_action.group("body"))
 
         version_failure_handler = re.search(
             r"-\s*\(void\)challengeTransport:\(FGChallengeTransport \*\)transport\s+"
@@ -446,6 +573,14 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("requestRematchWithContract", implementation)
         self.assertIn("Progress — You:", implementation)
         self.assertIn("Rules", implementation)
+        self.assertIn("exitToHomeHandler", header)
+        home_action = re.search(
+            r"-\s*\(void\)backToHome:\(id\)sender\s*\{(?P<body>.*?)\n\}",
+            implementation,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(home_action)
+        self.assertIn("self.exitToHomeHandler()", home_action.group("body"))
 
         for outcome in (
             "FGChallengeOutcomeWin",
@@ -481,6 +616,7 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("matchForInvite", implementation)
         self.assertIn("shouldReinviteDisconnectedPlayer", implementation)
         self.assertIn("self.reconnectAllowed", implementation)
+        self.assertIn("[self.match disconnect]", implementation)
         self.assertIn("gamePlayerID", implementation)
         self.assertIn("NSGKFriendListUsageDescription", APPLICATION_INFO_PLIST.read_text(encoding="utf-8"))
 
@@ -489,6 +625,27 @@ class FGChallengeSourceContractTests(unittest.TestCase):
 
         self.assertIn("challengeTransport", implementation)
         self.assertIn("pendingChallengePresentation", implementation)
+        self.assertIn("pendingIncomingChallengeInvitation", implementation)
+        self.assertIn("presentPendingChallengeInvitationIfPossible", implementation)
+        invitation_callback = re.search(
+            r"-\s*\(void\)challengeTransportDidAcceptInvitation:.*?\{(?P<body>.*?)(?=\n-\s*\()",
+            implementation,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(invitation_callback)
+        self.assertIn("pendingIncomingChallengeInvitation = YES", invitation_callback.group("body"))
+        invitation_presentation = re.search(
+            r"-\s*\(BOOL\)presentChallengeLobbyForIncomingInvitation:\(BOOL\)incomingInvitation\s*"
+            r"\{(?P<body>.*?)(?=\n-\s*\()",
+            implementation,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(invitation_presentation)
+        self.assertLess(
+            invitation_presentation.group("body").index("activateNetworkSession"),
+            invitation_presentation.group("body").index("beginInvitation"),
+        )
+        self.assertIn("pendingChallengePeerIdentifier", invitation_presentation.group("body"))
         self.assertIn("Game Center unavailable", implementation)
 
 

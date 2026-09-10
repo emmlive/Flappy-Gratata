@@ -887,6 +887,16 @@ static FGChallengeCoordinator *FGCoordinatorAwaitingVerification(NSString *raceI
 
 static void FGRequire(BOOL condition, NSString *message) { if (!condition) { fprintf(stderr, "FAIL: %s\n", message.UTF8String); exit(1); } }
 static void FGTestReadiness(void) { FGChallengeCoordinator *c = FGCoordinator(NULL); FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-ready"); FGRequire(![c beginRaceAtDate:contract.synchronizedStartDate], @"invalid idle-to-racing transition is rejected"); FGRequire([c beginInvitation] && [c beginLobbyWithPeerIdentifier:@"player-bravo"] && [c updateLocalReady:YES], @"lobby accepts one ready peer"); FGRequire(![c beginCountdownAtDate:contract.synchronizedStartDate], @"countdown requires both ready and contract"); FGRequire([c updateRemoteReady:YES] && [c lockLocalContract:contract remoteContract:contract], @"matching ready contract locks"); FGRequire(![c beginCountdownAtDate:[contract.synchronizedStartDate dateByAddingTimeInterval:-0.01]], @"wrong synchronized countdown date is rejected"); FGRequire([c beginCountdownAtDate:contract.synchronizedStartDate] && ![c beginRaceAtDate:[contract.synchronizedStartDate dateByAddingTimeInterval:0.01]] && [c beginRaceAtDate:contract.synchronizedStartDate], @"only exact synchronized start races"); }
+static void FGTestIncomingInvitationActivatesNetworkSession(void)
+{
+    FGChallengeCoordinator *c = FGCoordinator(NULL);
+
+    FGRequire([c beginInvitation], @"accepted invitation enters the inviting state");
+    FGRequire([c activateNetworkSession] && c.isNetworkSessionActive,
+              @"an accepted incoming invitation activates ordered production networking");
+    FGRequire([c beginLobbyWithPeerIdentifier:@"player-bravo"] && c.state == FGChallengeCoordinatorStateLobby,
+              @"the connected invited peer reaches the active lobby");
+}
 static void FGTestMismatch(void) { FGChallengeCoordinator *c = FGCoordinator(NULL); FGRequire([c beginInvitation] && [c beginLobbyWithPeerIdentifier:@"player-bravo"] && [c updateLocalReady:YES] && [c updateRemoteReady:YES], @"ready lobby established"); FGRequire(![c lockLocalContract:FGCoordinatorContract(@"one") remoteContract:FGCoordinatorContract(@"two")], @"contract mismatch blocks countdown"); FGRequire(c.state == FGChallengeCoordinatorStateReady, @"mismatch retains ready state"); }
 static void FGTestWindowAndGrace(void) { FGChallengeCoordinator *c = FGCoordinator(NULL); NSDate *crash = [NSDate dateWithTimeIntervalSince1970:100]; FGRequire(FGCoordinatorPrepareRace(c, FGCoordinatorContract(@"window")), @"race prepared"); FGRequire([c recordLocalCrashAtDate:crash] && c.state == FGChallengeCoordinatorStateFinishWindow, @"first crash starts finish window"); FGRequire([c advanceToDate:[crash dateByAddingTimeInterval:2.99]] && c.state == FGChallengeCoordinatorStateFinishWindow, @"survivor can continue inside window"); FGRequire([c advanceToDate:[crash dateByAddingTimeInterval:3.0]] && c.state == FGChallengeCoordinatorStateVerifying, @"window ends at three seconds"); c = FGCoordinator(NULL); NSDate *disconnect = [NSDate dateWithTimeIntervalSince1970:200]; FGRequire(FGCoordinatorPrepareRace(c, FGCoordinatorContract(@"grace")) && [c recordPeerDisconnectedAtDate:disconnect] && [c recordPeerReconnectedAtDate:[disconnect dateByAddingTimeInterval:4.99]], @"reconnect inside five seconds preserves race"); FGRequire(c.state == FGChallengeCoordinatorStateRacing, @"reconnected race remains racing"); }
 static void FGTestDisconnectOutcomes(void)
@@ -1446,6 +1456,110 @@ static void FGTestFinalCrossesFinishDeadline(void)
               @"reliable remote final crossing the local deadline is still verified");
 }
 
+static void FGTestFinalClaimBeyondFinishWindowIsRejected(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-late-final-bound");
+    NSDate *crashDate = [contract.synchronizedStartDate dateByAddingTimeInterval:60.0];
+    NSDictionary *localFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0);
+    NSMutableDictionary *lateRecord = [FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-bravo", 6, 4, NO, 0) mutableCopy];
+    lateRecord[@"elapsedTime"] = @63.01;
+
+    FGRequire([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract) &&
+              [coordinator recordLocalCrashAtDate:crashDate], @"bounded-final race starts");
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, localFinal);
+    FGRequire([coordinator advanceToDate:[crashDate dateByAddingTimeInterval:3.0]],
+              @"bounded-final race reaches verification");
+    FGChallengePacket *lateFinal = [[FGChallengePacket alloc] initWithRaceIdentifier:contract.raceIdentifier
+                                                                     playerIdentifier:@"player-bravo"
+                                                                       sequenceNumber:1 timestamp:63.01
+                                                              progressCheckpoint:6 score:4 birdY:0.5 motionHint:0
+                                                                        alive:NO disconnected:NO finalRecord:lateRecord];
+    FGRequire(![coordinator receiveRemotePacket:lateFinal fromPlayerIdentifier:@"player-bravo"
+                                         atDate:[crashDate dateByAddingTimeInterval:3.1]],
+              @"a final claiming progress after the canonical finish cutoff is rejected");
+}
+
+static void FGTestDisconnectDuringVerificationDoesNotCancelMatch(void)
+{
+    FGChallengeCoordinator *coordinator = FGCoordinator(NULL);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-verifying-disconnect");
+    NSDate *crashDate = [contract.synchronizedStartDate dateByAddingTimeInterval:10.0];
+    id<FGChallengeTransportDelegate> transportSink = (id<FGChallengeTransportDelegate>)coordinator;
+
+    FGRequire(FGCoordinatorPrepareRace(coordinator, contract) &&
+              [coordinator recordLocalCrashAtDate:crashDate] &&
+              [coordinator advanceToDate:[crashDate dateByAddingTimeInterval:3.0]],
+              @"disconnect-during-verification race reaches verification");
+    [transportSink challengeTransport:nil
+          didChangePeerWithIdentifier:@"player-bravo"
+                                state:FGChallengeTransportPeerStateDisconnected];
+    FGRequire(coordinator.state == FGChallengeCoordinatorStateVerifying,
+              @"a disconnect during verification preserves terminal result handling");
+}
+
+static void FGTestForfeitFinalCarriesObservedDisconnect(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-local-forfeit-final");
+    NSDate *disconnectDate = [contract.synchronizedStartDate dateByAddingTimeInterval:10.0];
+    NSMutableDictionary *sceneFinal = [FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 1, 1, NO, 0) mutableCopy];
+    sceneFinal[@"crashed"] = @NO;
+    sceneFinal[@"elapsedTime"] = @15.0;
+
+    FGRequire([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract) &&
+              [coordinator recordLocalDisconnectedAtDate:disconnectDate] &&
+              [coordinator advanceToDate:[disconnectDate dateByAddingTimeInterval:5.0]],
+              @"local disconnect reaches canonical forfeit verification");
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, sceneFinal);
+    FGRequire([coordinator.latestLocalFinalRecord[@"disconnected"] boolValue] &&
+              fabs([coordinator.latestLocalFinalRecord[@"disconnectDurationSeconds"] doubleValue] - 5.0) < 0.000001,
+              @"coordinator-owned disconnect observation is represented in the local final");
+    FGRequire(transport.lastSentPacket.kind == FGChallengePacketKindRaceState &&
+              [transport.lastSentPacket.finalRecord isEqualToDictionary:coordinator.latestLocalFinalRecord],
+              @"the canonical disconnected final is exchanged with the peer");
+}
+
+static void FGTestMissingFinalTerminatesUnverified(void)
+{
+    FGChallengeRecordStore *records;
+    FGChallengeCoordinator *coordinator = FGCoordinatorWithRecordStore(NULL, &records);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-missing-final");
+    NSDate *disconnectDate = [contract.synchronizedStartDate dateByAddingTimeInterval:10.0];
+
+    FGRequire(FGCoordinatorPrepareRace(coordinator, contract) &&
+              [coordinator recordPeerDisconnectedAtDate:disconnectDate] &&
+              [coordinator advanceToDate:[disconnectDate dateByAddingTimeInterval:5.0]],
+              @"missing-final peer reaches forfeit verification");
+    FGRequire([coordinator advanceToDate:[disconnectDate dateByAddingTimeInterval:10.0]] &&
+              coordinator.state == FGChallengeCoordinatorStateVoided &&
+              coordinator.outcome == FGChallengeOutcomeUnverified && !coordinator.isResultVerified,
+              @"missing bilateral final facts terminate as safe unverified results");
+    FGRequire([records.aggregateRecord[@"totalLiveRaces"] integerValue] == 0,
+              @"missing final timeout never mutates competitive records");
+}
+
+static void FGTestProgressIsFrozenAfterLocalFinal(void)
+{
+    FGChallengeCoordinator *coordinator = FGCoordinator(NULL);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-final-freeze");
+    NSDate *crashDate = [contract.synchronizedStartDate dateByAddingTimeInterval:60.0];
+    id<FGChallengeRaceSceneEventDelegate> eventSink = (id<FGChallengeRaceSceneEventDelegate>)coordinator;
+
+    FGRequire(FGCoordinatorPrepareRace(coordinator, contract) && [coordinator recordLocalCrashAtDate:crashDate],
+              @"final-freeze race reaches its finish window");
+    FGCoordinatorSubmitSceneFinalRecord(coordinator,
+                                        FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0));
+    [eventSink challengeRaceScene:nil didUpdateLocalProgressCheckpoint:8 score:6];
+    [eventSink challengeRaceScene:nil
+       didUpdateLocalSnapshotWithProgressCheckpoint:8 score:6 normalizedBirdY:0.5 motionHint:0
+                            elapsedTime:61.0 alive:YES];
+    FGRequire(coordinator.localProgressCheckpoint == 7 && coordinator.localScore == 5,
+              @"progress and score cannot diverge after authoritative final facts are frozen");
+}
+
 static void FGTestSceneSnapshotPublishesState(void)
 {
     FGChallengeCoordinatorFakeTransport *transport;
@@ -1513,6 +1627,7 @@ int main(int argc, const char *argv[])
     @autoreleasepool {
         const FGCoordinatorNamedTest tests[] = {
             { "readiness", FGTestReadiness },
+            { "incoming-invitation", FGTestIncomingInvitationActivatesNetworkSession },
             { "contract-mismatch", FGTestMismatch },
             { "window-and-grace", FGTestWindowAndGrace },
             { "disconnect-outcomes", FGTestDisconnectOutcomes },
@@ -1543,6 +1658,11 @@ int main(int argc, const char *argv[])
             { "received-state-validation", FGTestReceivedRaceStateValidationAndReceiptDeadline },
             { "production-final-exchange", FGTestProductionFinalExchangeAndRecording },
             { "final-crosses-deadline", FGTestFinalCrossesFinishDeadline },
+            { "late-final-bound", FGTestFinalClaimBeyondFinishWindowIsRejected },
+            { "verifying-disconnect", FGTestDisconnectDuringVerificationDoesNotCancelMatch },
+            { "forfeit-final-disconnect", FGTestForfeitFinalCarriesObservedDisconnect },
+            { "missing-final-timeout", FGTestMissingFinalTerminatesUnverified },
+            { "progress-after-final", FGTestProgressIsFrozenAfterLocalFinal },
             { "scene-state-stream", FGTestSceneSnapshotPublishesState },
             { "network-rematch", FGTestNetworkRematchNegotiation },
         };

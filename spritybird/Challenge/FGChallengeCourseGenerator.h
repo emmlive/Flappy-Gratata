@@ -1,13 +1,4 @@
-#import <Foundation/Foundation.h>
-
-FOUNDATION_EXPORT NSString * const FGChallengeCourseGenerationVersion1;
-
-FOUNDATION_EXPORT const NSInteger FGChallengeCourseFirstObstaclePadding;
-FOUNDATION_EXPORT const NSInteger FGChallengeCourseObstacleInterval;
-FOUNDATION_EXPORT const NSInteger FGChallengeCourseMinimumObstacleHeight;
-FOUNDATION_EXPORT const NSInteger FGChallengeCourseMaximumObstacleHeight;
-FOUNDATION_EXPORT const NSInteger FGChallengeCourseGapHeight;
-FOUNDATION_EXPORT const CGFloat FGChallengeCourseSpeedPointsPerSecond;
+#import "FGChallengeRules.h"
 
 @interface FGChallengeObstacleDescriptor : NSObject <NSCopying>
 

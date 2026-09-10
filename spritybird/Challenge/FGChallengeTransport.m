@@ -195,6 +195,7 @@ toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
 {
 #if FGCHALLENGE_HAS_GAMEKIT
     self.match.delegate = nil;
+    [self.match disconnect];
     self.match = nil;
     self.announcedInvitationAcceptance = NO;
     [self.announcedPlayerIdentifiers removeAllObjects];

@@ -44,6 +44,9 @@ typedef NS_ENUM(NSInteger, FGChallengeCoordinatorState) {
 @property (nonatomic, assign, readonly) NSInteger remoteScore;
 @property (nonatomic, strong, readonly) FGChallengePacket *lastAcceptedRemotePacket;
 @property (nonatomic, strong, readonly) FGChallengeRecordStore *recordStore;
+@property (nonatomic, assign, readonly, getter=isLocalPlayerDisconnected) BOOL localPlayerDisconnected;
+@property (nonatomic, assign, readonly) NSTimeInterval localDisconnectDurationSeconds;
+@property (nonatomic, assign, readonly) NSTimeInterval maximumAllowedFinalElapsedTime;
 
 - (instancetype)initWithTransport:(id<FGChallengeTransporting>)transport
                     resultVerifier:(FGChallengeResultVerifier *)resultVerifier

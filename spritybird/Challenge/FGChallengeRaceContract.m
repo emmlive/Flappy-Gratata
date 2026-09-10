@@ -18,8 +18,6 @@ NSString * const FGChallengeRaceContractMismatchReasonReconnectGrace = @"reconne
 NSString * const FGChallengeRaceContractMismatchReasonCompatibilityFingerprint = @"compatibility-fingerprint-mismatch";
 NSString * const FGChallengeRaceContractErrorDomain = @"com.flappygratata.challenge.race-contract";
 
-static NSString * const FGChallengeCanonicalCourseGenerationVersion = @"course-v1";
-
 @interface FGChallengeRaceContract ()
 
 @property (nonatomic, copy, readwrite) NSString *raceIdentifier;
@@ -45,7 +43,7 @@ static NSString * const FGChallengeCanonicalCourseGenerationVersion = @"course-v
 {
     return [[self alloc] initWithRaceIdentifier:raceIdentifier
                                           seed:seed
-                       courseGenerationVersion:FGChallengeCanonicalCourseGenerationVersion
+                       courseGenerationVersion:FGChallengeCourseGenerationVersion1
                         gameplayRulesetVersion:FGChallengeGameplayRulesetVersion
                                protocolVersion:FGChallengeProtocolVersion
                         firstPlayerIdentifier:firstPlayerIdentifier
@@ -207,7 +205,7 @@ static NSString * const FGChallengeCanonicalCourseGenerationVersion = @"course-v
 
 - (BOOL)usesCanonicalConfiguration
 {
-    return [self.courseGenerationVersion isEqualToString:FGChallengeCanonicalCourseGenerationVersion] &&
+    return [self.courseGenerationVersion isEqualToString:FGChallengeCourseGenerationVersion1] &&
            [self.gameplayRulesetVersion isEqualToString:FGChallengeGameplayRulesetVersion] &&
            [self.protocolVersion isEqualToString:FGChallengeProtocolVersion] &&
            self.finishWindowSeconds == FGChallengeFinishWindowSeconds &&

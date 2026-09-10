@@ -10,19 +10,6 @@
 #import <math.h>
 #import <TargetConditionals.h>
 
-// These values are deliberately local Challenge compatibility constants. They
-// reproduce the approved protected gameplay contract without importing or
-// modifying Classic scene sources.
-static const CGFloat FGChallengeRaceSceneBackgroundScrollSpeed = 0.0;
-static const CGFloat FGChallengeRaceSceneGapHeight = 120.0;
-static const CGFloat FGChallengeRaceSceneFirstObstaclePadding = 100.0;
-static const CGFloat FGChallengeRaceSceneMinimumObstacleHeight = 60.0;
-static const CGFloat FGChallengeRaceSceneBirdMass = 0.1;
-static const CGFloat FGChallengeRaceSceneFlapImpulse = 40.0;
-static const CGFloat FGChallengeRaceSceneFlapAnimationFrameSeconds = 0.2;
-static const CGFloat FGChallengeRaceSceneRotationVelocityScale = 0.0001;
-static const CGFloat FGChallengeRaceSceneGravity = -9.8;
-
 static const uint32_t FGChallengeRaceSceneBackgroundCategory = 1u << 0;
 static const uint32_t FGChallengeRaceSceneBirdCategory = 1u << 1;
 static const uint32_t FGChallengeRaceSceneFloorCategory = 1u << 2;
@@ -70,7 +57,7 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
             _eventDelegate = (id<FGChallengeRaceSceneEventDelegate>)coordinator;
         }
         _obstacleNodesByIndex = [NSMutableDictionary dictionary];
-        self.physicsWorld.gravity = CGVectorMake(0.0, FGChallengeRaceSceneGravity);
+        self.physicsWorld.gravity = CGVectorMake(0.0, FGChallengeGravity);
         self.physicsWorld.contactDelegate = self;
         [self createStaticPresentation];
         [self createLocalBird];
@@ -90,10 +77,10 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     NSTimeInterval contractElapsedTime = MAX(0.0, [[NSDate date] timeIntervalSinceDate:self.raceContract.synchronizedStartDate]);
     self.raceStartSceneTime = currentTime - contractElapsedTime;
     self.lastUpdateTime = currentTime;
-    self.localBird.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:CGSizeMake(26.0, 18.0)];
+    self.localBird.physicsBody = [SKPhysicsBody bodyWithRectangleOfSize:FGChallengeBirdCollisionSize];
     self.localBird.physicsBody.categoryBitMask = FGChallengeRaceSceneBirdCategory;
     self.localBird.physicsBody.contactTestBitMask = FGChallengeRaceSceneFloorCategory | FGChallengeRaceSceneObstacleCategory;
-    self.localBird.physicsBody.mass = FGChallengeRaceSceneBirdMass;
+    self.localBird.physicsBody.mass = FGChallengeBirdMass;
 }
 
 - (void)finishRaceAtTime:(NSTimeInterval)currentTime
@@ -101,8 +88,10 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     if (!self.hasStartedRace || self.localFinalRecord != nil) {
         return;
     }
-    [self updateLocalProgressAtElapsedTime:[self elapsedTimeForCurrentTime:currentTime]];
-    [self notifyDelegateOfLocalFinalRecordAtElapsedTime:[self elapsedTimeForCurrentTime:currentTime]
+    NSTimeInterval elapsedTime = MIN([self elapsedTimeForCurrentTime:currentTime],
+                                     self.coordinator.maximumAllowedFinalElapsedTime);
+    [self updateLocalProgressAtElapsedTime:elapsedTime];
+    [self notifyDelegateOfLocalFinalRecordAtElapsedTime:elapsedTime
                                                 crashed:self.hasLocalCrashed];
 }
 
@@ -132,6 +121,9 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     }
 
     [self.ghostRenderer updateAtTime:currentTime];
+    if (self.localFinalRecord != nil) {
+        return;
+    }
     if (self.coordinator.state != FGChallengeCoordinatorStateRacing &&
         self.coordinator.state != FGChallengeCoordinatorStateFinishWindow) {
         return;
@@ -155,7 +147,7 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     background.position = CGPointZero;
     background.zPosition = -10.0;
     // The background is intentionally stationary: compatibility speed is 0.
-    background.speed = FGChallengeRaceSceneBackgroundScrollSpeed;
+    background.speed = FGChallengeBackgroundScrollSpeed;
     background.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(0.0, 0.0,
                                                                                   self.size.width,
                                                                                   self.size.height)];
@@ -206,11 +198,11 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
         SKSpriteNode *topPipe = [SKSpriteNode spriteNodeWithImageNamed:@"pipe_top"];
         CGFloat bottomPipeY = floorHeight + descriptor.bottomObstacleHeight - bottomPipe.size.height;
 
-        NSAssert(descriptor.horizontalOffset >= FGChallengeRaceSceneFirstObstaclePadding,
+        NSAssert(descriptor.horizontalOffset >= FGChallengeCourseFirstObstaclePadding,
                  @"Challenge descriptors must retain the protected first-obstacle padding.");
-        NSAssert(descriptor.bottomObstacleHeight >= FGChallengeRaceSceneMinimumObstacleHeight,
+        NSAssert(descriptor.bottomObstacleHeight >= FGChallengeCourseMinimumObstacleHeight,
                  @"Challenge descriptors must retain the protected minimum obstacle height.");
-        NSAssert(descriptor.gapHeight == (NSInteger)FGChallengeRaceSceneGapHeight,
+        NSAssert(descriptor.gapHeight == FGChallengeCourseGapHeight,
                  @"Challenge descriptors must retain the protected gap height.");
 
         bottomPipe.anchorPoint = CGPointZero;
@@ -221,7 +213,7 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
         topPipe.anchorPoint = CGPointZero;
         topPipe.name = @"challenge-top-pipe";
         topPipe.position = CGPointMake(self.localBird.position.x + descriptor.horizontalOffset,
-                                       floorHeight + descriptor.bottomObstacleHeight + FGChallengeRaceSceneGapHeight);
+                                       floorHeight + descriptor.bottomObstacleHeight + FGChallengeCourseGapHeight);
         [self configureObstaclePhysicsForNode:topPipe];
 
         [self addChild:bottomPipe];
@@ -243,7 +235,7 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     SKTexture *secondTexture = [SKTexture textureWithImageNamed:@"bird_2"];
     SKTexture *thirdTexture = [SKTexture textureWithImageNamed:@"bird_3"];
     SKAction *flap = [SKAction animateWithTextures:@[firstTexture, secondTexture, thirdTexture]
-                                       timePerFrame:FGChallengeRaceSceneFlapAnimationFrameSeconds];
+                                       timePerFrame:FGChallengeBirdFlapAnimationFrameSeconds];
 
     self.localBird = [SKSpriteNode spriteNodeWithTexture:firstTexture];
     self.localBird.position = CGPointMake(100.0, CGRectGetMidY(self.frame));
@@ -285,7 +277,7 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
 
 - (void)updateLocalBirdRotation
 {
-    self.localBird.zRotation = M_PI * self.localBird.physicsBody.velocity.dy * FGChallengeRaceSceneRotationVelocityScale;
+    self.localBird.zRotation = M_PI * self.localBird.physicsBody.velocity.dy * FGChallengeBirdRotationVelocityScale;
 }
 
 - (void)updateLocalProgressAtElapsedTime:(NSTimeInterval)elapsedTime
@@ -310,7 +302,7 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     CGFloat playableHeight = MAX(1.0, self.size.height - self.floorNode.size.height);
     CGFloat normalizedBirdY = (self.localBird.position.y - self.floorNode.size.height) / playableHeight;
     normalizedBirdY = MAX(0.0, MIN(1.0, normalizedBirdY));
-    CGFloat motionHint = MAX(-1.0, MIN(1.0, self.localBird.physicsBody.velocity.dy / FGChallengeFlapImpulse));
+    CGFloat motionHint = MAX(-1.0, MIN(1.0, self.localBird.physicsBody.velocity.dy / FGChallengeBirdFlapImpulse));
     [self.eventDelegate challengeRaceScene:self
        didUpdateLocalSnapshotWithProgressCheckpoint:self.localProgressCheckpoint
                              score:self.localScore
@@ -328,8 +320,8 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
                                @"progressCheckpoint": @(self.localProgressCheckpoint),
                                @"score": @(self.localScore),
                                @"crashed": @(crashed),
-                               @"disconnected": @NO,
-                               @"disconnectDurationSeconds": @0,
+                               @"disconnected": @(self.coordinator.isLocalPlayerDisconnected),
+                               @"disconnectDurationSeconds": @(self.coordinator.localDisconnectDurationSeconds),
                                @"elapsedTime": @(elapsedTime) };
     NSAssert(self.localFinalRecord[@"elapsedTime"] != nil, @"Challenge final records include contract elapsed time.");
     if ([self.eventDelegate respondsToSelector:@selector(challengeRaceScene:didProduceLocalFinalRecord:)]) {
@@ -349,7 +341,7 @@ static const uint32_t FGChallengeRaceSceneObstacleCategory = 1u << 3;
     (void)event;
     if (self.coordinator.state == FGChallengeCoordinatorStateRacing && self.localBird.physicsBody != nil) {
         [self.localBird.physicsBody setVelocity:CGVectorMake(0.0, 0.0)];
-        [self.localBird.physicsBody applyImpulse:CGVectorMake(0.0, FGChallengeRaceSceneFlapImpulse)];
+        [self.localBird.physicsBody applyImpulse:CGVectorMake(0.0, FGChallengeBirdFlapImpulse)];
     }
 }
 

@@ -9,6 +9,8 @@ typedef FGChallengeRaceContract * _Nullable (^FGChallengeRematchContractProvider
 
 @interface FGChallengeResultsViewController : UIViewController
 
+@property (nonatomic, copy) void (^exitToHomeHandler)(void);
+
 - (instancetype)initWithVerifiedResult:(FGChallengeVerifiedResult *)verifiedResult
                             recordStore:(FGChallengeRecordStore *)recordStore
                             coordinator:(FGChallengeCoordinator *)coordinator

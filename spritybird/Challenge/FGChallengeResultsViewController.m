@@ -153,6 +153,11 @@
 
 - (void)backToHome:(id)sender
 {
+    (void)sender;
+    if (self.exitToHomeHandler != nil) {
+        self.exitToHomeHandler();
+        return;
+    }
     if (self.navigationController != nil) {
         [self.navigationController popToRootViewControllerAnimated:YES];
     } else {
