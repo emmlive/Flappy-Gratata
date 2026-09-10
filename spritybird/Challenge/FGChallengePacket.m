@@ -7,8 +7,10 @@ NSString * const FGChallengePacketErrorDomain = @"com.flappygratata.challenge.pa
 static NSString * const FGChallengePacketVersionKey = @"version";
 static NSString * const FGChallengePacketRaceIdentifierKey = @"raceIdentifier";
 static NSString * const FGChallengePacketPlayerIdentifierKey = @"playerIdentifier";
+static NSString * const FGChallengePacketKindKey = @"kind";
 static NSString * const FGChallengePacketSequenceNumberKey = @"sequenceNumber";
 static NSString * const FGChallengePacketTimestampKey = @"timestamp";
+static NSString * const FGChallengePacketPayloadKey = @"payload";
 static NSString * const FGChallengePacketProgressCheckpointKey = @"progressCheckpoint";
 static NSString * const FGChallengePacketScoreKey = @"score";
 static NSString * const FGChallengePacketBirdYKey = @"birdY";
@@ -16,12 +18,13 @@ static NSString * const FGChallengePacketMotionHintKey = @"motionHint";
 static NSString * const FGChallengePacketAliveKey = @"alive";
 static NSString * const FGChallengePacketDisconnectedKey = @"disconnected";
 static NSString * const FGChallengePacketFinalRecordKey = @"finalRecord";
-static const NSInteger FGChallengePacketVersion = 1;
+static const NSInteger FGChallengePacketVersion = 2;
 
 @interface FGChallengePacket ()
 
 @property (nonatomic, copy, readwrite) NSString *raceIdentifier;
 @property (nonatomic, copy, readwrite) NSString *playerIdentifier;
+@property (nonatomic, assign, readwrite) FGChallengePacketKind kind;
 @property (nonatomic, assign, readwrite) uint64_t sequenceNumber;
 @property (nonatomic, assign, readwrite) NSTimeInterval timestamp;
 @property (nonatomic, assign, readwrite) NSUInteger progressCheckpoint;
@@ -30,6 +33,7 @@ static const NSInteger FGChallengePacketVersion = 1;
 @property (nonatomic, assign, readwrite, getter=isAlive) BOOL alive;
 @property (nonatomic, assign, readwrite, getter=isDisconnected) BOOL disconnected;
 @property (nonatomic, copy, readwrite) NSDictionary<NSString *, id> *finalRecord;
+@property (nonatomic, copy, readwrite) NSDictionary<NSString *, id> *payload;
 
 @end
 
@@ -61,6 +65,7 @@ static const NSInteger FGChallengePacketVersion = 1;
     if (self) {
         _raceIdentifier = [raceIdentifier copy];
         _playerIdentifier = [playerIdentifier copy];
+        _kind = FGChallengePacketKindRaceState;
         _sequenceNumber = sequenceNumber;
         _timestamp = timestamp;
         _progressCheckpoint = progressCheckpoint;
@@ -74,11 +79,51 @@ static const NSInteger FGChallengePacketVersion = 1;
     return self;
 }
 
++ (instancetype)controlPacketWithKind:(FGChallengePacketKind)kind
+                        raceIdentifier:(NSString *)raceIdentifier
+                      playerIdentifier:(NSString *)playerIdentifier
+                        sequenceNumber:(uint64_t)sequenceNumber
+                             timestamp:(NSTimeInterval)timestamp
+                               payload:(NSDictionary<NSString *,id> *)payload
+{
+    FGChallengePacket *packet;
+    NSDictionary *snapshot;
+
+    if (kind == FGChallengePacketKindRaceState ||
+        ![self presentString:raceIdentifier] ||
+        ![self presentString:playerIdentifier] ||
+        !isfinite(timestamp) || timestamp < 0.0 ||
+        ![self payload:payload isValidForKind:kind]) {
+        return nil;
+    }
+    snapshot = [self immutablePropertyListDictionary:payload];
+    if (snapshot == nil) {
+        return nil;
+    }
+    packet = [[self alloc] initWithRaceIdentifier:raceIdentifier
+                                 playerIdentifier:playerIdentifier
+                                   sequenceNumber:sequenceNumber
+                                        timestamp:timestamp
+                               progressCheckpoint:0
+                                            score:0
+                                            birdY:0.0
+                                       motionHint:0.0
+                                            alive:YES
+                                     disconnected:NO
+                                      finalRecord:nil];
+    packet.kind = kind;
+    packet.payload = snapshot;
+    if (kind == FGChallengePacketKindVerification) {
+        packet.finalRecord = snapshot[@"finalRecord"];
+    }
+    return packet;
+}
+
 + (instancetype)packetFromDictionary:(NSDictionary<NSString *,id> *)dictionary
                                 error:(NSError * __autoreleasing *)error
 {
-    NSSet<NSString *> *allowedKeys;
     NSNumber *version;
+    NSNumber *kindNumber;
     NSNumber *sequenceNumber;
     NSNumber *timestamp;
     NSNumber *progressCheckpoint;
@@ -88,27 +133,10 @@ static const NSInteger FGChallengePacketVersion = 1;
     NSNumber *alive;
     NSNumber *disconnected;
     NSDictionary *finalRecord;
+    NSDictionary *payload;
     FGChallengePacket *packet;
 
     if (![dictionary isKindOfClass:[NSDictionary class]]) {
-        return [self packetWithErrorCode:FGChallengePacketErrorMalformedPacket error:error];
-    }
-
-    allowedKeys = [NSSet setWithArray:@[
-        FGChallengePacketVersionKey,
-        FGChallengePacketRaceIdentifierKey,
-        FGChallengePacketPlayerIdentifierKey,
-        FGChallengePacketSequenceNumberKey,
-        FGChallengePacketTimestampKey,
-        FGChallengePacketProgressCheckpointKey,
-        FGChallengePacketScoreKey,
-        FGChallengePacketBirdYKey,
-        FGChallengePacketMotionHintKey,
-        FGChallengePacketAliveKey,
-        FGChallengePacketDisconnectedKey,
-        FGChallengePacketFinalRecordKey,
-    ]];
-    if (dictionary.count < 11 || ![[NSSet setWithArray:dictionary.allKeys] isSubsetOfSet:allowedKeys]) {
         return [self packetWithErrorCode:FGChallengePacketErrorMalformedPacket error:error];
     }
 
@@ -117,12 +145,64 @@ static const NSInteger FGChallengePacketVersion = 1;
     }
 
     version = dictionary[FGChallengePacketVersionKey];
-    if (![self strictIntegerNumber:version] || version.integerValue != FGChallengePacketVersion) {
+    kindNumber = dictionary[FGChallengePacketKindKey];
+    if (![self strictIntegerNumber:version] || version.integerValue != FGChallengePacketVersion ||
+        ![self strictIntegerNumber:kindNumber] ||
+        kindNumber.integerValue < FGChallengePacketKindRaceState ||
+        kindNumber.integerValue > FGChallengePacketKindRematch) {
         return [self packetWithErrorCode:FGChallengePacketErrorUnsupportedVersion error:error];
     }
 
     sequenceNumber = dictionary[FGChallengePacketSequenceNumberKey];
     timestamp = dictionary[FGChallengePacketTimestampKey];
+    if (![self presentString:dictionary[FGChallengePacketPlayerIdentifierKey]] ||
+        ![self strictUnsignedIntegerNumber:sequenceNumber] ||
+        ![self finiteNumber:timestamp] || timestamp.doubleValue < 0.0) {
+        return [self packetWithErrorCode:FGChallengePacketErrorMalformedField error:error];
+    }
+
+    FGChallengePacketKind kind = (FGChallengePacketKind)kindNumber.integerValue;
+    if (kind != FGChallengePacketKindRaceState) {
+        NSSet *controlKeys = [NSSet setWithArray:@[
+            FGChallengePacketVersionKey, FGChallengePacketRaceIdentifierKey,
+            FGChallengePacketPlayerIdentifierKey, FGChallengePacketKindKey,
+            FGChallengePacketSequenceNumberKey, FGChallengePacketTimestampKey,
+            FGChallengePacketPayloadKey,
+        ]];
+        payload = dictionary[FGChallengePacketPayloadKey];
+        if (dictionary.count != controlKeys.count ||
+            ![[NSSet setWithArray:dictionary.allKeys] isEqualToSet:controlKeys] ||
+            ![self payload:payload isValidForKind:kind]) {
+            return [self packetWithErrorCode:FGChallengePacketErrorMalformedField error:error];
+        }
+        packet = [self controlPacketWithKind:kind
+                              raceIdentifier:dictionary[FGChallengePacketRaceIdentifierKey]
+                            playerIdentifier:dictionary[FGChallengePacketPlayerIdentifierKey]
+                              sequenceNumber:sequenceNumber.unsignedLongLongValue
+                                   timestamp:timestamp.doubleValue
+                                     payload:payload];
+        if (packet == nil) {
+            return [self packetWithErrorCode:FGChallengePacketErrorMalformedField error:error];
+        }
+        if (error != NULL) {
+            *error = nil;
+        }
+        return packet;
+    }
+
+    NSSet *stateKeys = [NSSet setWithArray:@[
+        FGChallengePacketVersionKey, FGChallengePacketRaceIdentifierKey,
+        FGChallengePacketPlayerIdentifierKey, FGChallengePacketKindKey,
+        FGChallengePacketSequenceNumberKey, FGChallengePacketTimestampKey,
+        FGChallengePacketProgressCheckpointKey, FGChallengePacketScoreKey,
+        FGChallengePacketBirdYKey, FGChallengePacketMotionHintKey,
+        FGChallengePacketAliveKey, FGChallengePacketDisconnectedKey,
+        FGChallengePacketFinalRecordKey,
+    ]];
+    if (dictionary.count < stateKeys.count - 1 ||
+        ![[NSSet setWithArray:dictionary.allKeys] isSubsetOfSet:stateKeys]) {
+        return [self packetWithErrorCode:FGChallengePacketErrorMalformedPacket error:error];
+    }
     progressCheckpoint = dictionary[FGChallengePacketProgressCheckpointKey];
     score = dictionary[FGChallengePacketScoreKey];
     birdY = dictionary[FGChallengePacketBirdYKey];
@@ -131,10 +211,7 @@ static const NSInteger FGChallengePacketVersion = 1;
     disconnected = dictionary[FGChallengePacketDisconnectedKey];
     finalRecord = dictionary[FGChallengePacketFinalRecordKey];
 
-    if (![self presentString:dictionary[FGChallengePacketPlayerIdentifierKey]] ||
-        ![self strictUnsignedIntegerNumber:sequenceNumber] ||
-        ![self finiteNumber:timestamp] ||
-        ![self strictUnsignedIntegerNumber:progressCheckpoint] ||
+    if (![self strictUnsignedIntegerNumber:progressCheckpoint] ||
         ![self strictIntegerNumber:score] || score.longLongValue < 0 ||
         ![self finiteNumber:birdY] ||
         ![self finiteNumber:motionHint] ||
@@ -166,10 +243,20 @@ static const NSInteger FGChallengePacketVersion = 1;
 
 - (NSDictionary<NSString *,id> *)dictionaryRepresentation
 {
+    if (self.kind != FGChallengePacketKindRaceState) {
+        return @{ FGChallengePacketVersionKey: @(FGChallengePacketVersion),
+                  FGChallengePacketRaceIdentifierKey: self.raceIdentifier,
+                  FGChallengePacketPlayerIdentifierKey: self.playerIdentifier,
+                  FGChallengePacketKindKey: @(self.kind),
+                  FGChallengePacketSequenceNumberKey: @(self.sequenceNumber),
+                  FGChallengePacketTimestampKey: @(self.timestamp),
+                  FGChallengePacketPayloadKey: self.payload ?: @{} };
+    }
     NSMutableDictionary<NSString *, id> *dictionary = [@{
         FGChallengePacketVersionKey: @(FGChallengePacketVersion),
         FGChallengePacketRaceIdentifierKey: self.raceIdentifier,
         FGChallengePacketPlayerIdentifierKey: self.playerIdentifier,
+        FGChallengePacketKindKey: @(self.kind),
         FGChallengePacketSequenceNumberKey: @(self.sequenceNumber),
         FGChallengePacketTimestampKey: @(self.timestamp),
         FGChallengePacketProgressCheckpointKey: @(self.progressCheckpoint),
@@ -210,7 +297,9 @@ static const NSInteger FGChallengePacketVersion = 1;
     if ([self orderingAfterPacket:previousPacket] != FGChallengePacketOrderingNewer) {
         return NO;
     }
-    return previousPacket == nil || self.progressCheckpoint >= previousPacket.progressCheckpoint;
+    return previousPacket == nil || self.kind != FGChallengePacketKindRaceState ||
+           previousPacket.kind != FGChallengePacketKindRaceState ||
+           self.progressCheckpoint >= previousPacket.progressCheckpoint;
 }
 
 + (BOOL)presentString:(id)value
@@ -261,6 +350,56 @@ static const NSInteger FGChallengePacketVersion = 1;
 {
     return [value isKindOfClass:[NSDictionary class]] &&
            [NSPropertyListSerialization propertyList:value isValidForFormat:NSPropertyListBinaryFormat_v1_0];
+}
+
++ (NSDictionary<NSString *, id> *)immutablePropertyListDictionary:(NSDictionary<NSString *, id> *)dictionary
+{
+    NSError *error = nil;
+    NSData *data;
+    id snapshot;
+
+    if (![dictionary isKindOfClass:[NSDictionary class]] ||
+        ![NSPropertyListSerialization propertyList:dictionary isValidForFormat:NSPropertyListBinaryFormat_v1_0]) {
+        return nil;
+    }
+    data = [NSPropertyListSerialization dataWithPropertyList:dictionary
+                                                       format:NSPropertyListBinaryFormat_v1_0
+                                                      options:0
+                                                        error:&error];
+    if (data == nil || error != nil) {
+        return nil;
+    }
+    snapshot = [NSPropertyListSerialization propertyListWithData:data
+                                                          options:NSPropertyListImmutable
+                                                           format:NULL
+                                                            error:&error];
+    return error == nil && [snapshot isKindOfClass:[NSDictionary class]] ? snapshot : nil;
+}
+
++ (BOOL)payload:(NSDictionary<NSString *, id> *)payload isValidForKind:(FGChallengePacketKind)kind
+{
+    if (![payload isKindOfClass:[NSDictionary class]] ||
+        ![NSPropertyListSerialization propertyList:payload isValidForFormat:NSPropertyListBinaryFormat_v1_0]) {
+        return NO;
+    }
+    switch (kind) {
+        case FGChallengePacketKindReady:
+        case FGChallengePacketKindRematch:
+            return payload.count == 1 && [self booleanNumber:payload[@"ready"]];
+        case FGChallengePacketKindContract:
+            return payload.count == 1 && [payload[@"contract"] isKindOfClass:[NSDictionary class]];
+        case FGChallengePacketKindContractAcknowledgement:
+            return payload.count == 0;
+        case FGChallengePacketKindVerification: {
+            NSNumber *outcome = payload[@"derivedOutcome"];
+            return payload.count == 2 && [self isValidFinalRecord:payload[@"finalRecord"]] &&
+                   [self strictIntegerNumber:outcome] &&
+                   outcome.integerValue >= 0 && outcome.integerValue <= 4;
+        }
+        case FGChallengePacketKindRaceState:
+            return NO;
+    }
+    return NO;
 }
 
 + (instancetype)packetWithErrorCode:(FGChallengePacketErrorCode)errorCode

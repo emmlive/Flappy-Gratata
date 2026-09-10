@@ -14,6 +14,7 @@
 #endif
 
 #import "../../spritybird/Challenge/FGChallengeRaceContract.h"
+#import "../../spritybird/Challenge/FGChallengeRules.h"
 
 static FGChallengeRaceContract *FGChallengeTestContract(NSString *raceIdentifier,
                                                          uint64_t seed,
@@ -111,6 +112,29 @@ static FGChallengeRaceContract *FGChallengeBaselineContract(void)
                                          3.0, 5.0, @"classic-constants-v1"));
 }
 
+- (void)testCanonicalContractRoundTripRejectsNoncanonicalWireRules
+{
+    FGChallengeRaceContract *contract = [FGChallengeRaceContract canonicalContractWithRaceIdentifier:@"race-canonical"
+                                                                                                  seed:91
+                                                                                 firstPlayerIdentifier:@"player-alpha"
+                                                                                secondPlayerIdentifier:@"player-bravo"
+                                                                                  synchronizedStartDate:[NSDate dateWithTimeIntervalSince1970:1700000100]];
+    NSError *error = nil;
+    FGChallengeRaceContract *decoded = [FGChallengeRaceContract contractFromDictionary:contract.dictionaryRepresentation error:&error];
+
+    XCTAssertNotNil(decoded);
+    XCTAssertNil(error);
+    XCTAssertTrue([decoded usesCanonicalConfiguration]);
+    XCTAssertEqualObjects(decoded.compatibilityFingerprint, FGChallengeCompatibilityFingerprint());
+
+    for (NSString *key in @[ @"finishWindowSeconds", @"reconnectGraceSeconds", @"protocolVersion", @"compatibilityFingerprint" ]) {
+        NSMutableDictionary *invalid = [contract.dictionaryRepresentation mutableCopy];
+        invalid[key] = [key hasSuffix:@"Seconds"] ? @99 : @"unsupported";
+        XCTAssertNil([FGChallengeRaceContract contractFromDictionary:invalid error:&error]);
+        XCTAssertEqualObjects(error.domain, FGChallengeRaceContractErrorDomain);
+    }
+}
+
 @end
 
 #else
@@ -183,12 +207,40 @@ static void FGTestRejectsMalformedParticipantPair(void)
               @"duplicate participants are rejected");
 }
 
+static void FGTestCanonicalContractRoundTripRejectsNoncanonicalWireRules(void)
+{
+    FGChallengeRaceContract *contract = [FGChallengeRaceContract canonicalContractWithRaceIdentifier:@"race-canonical"
+                                                                                                  seed:91
+                                                                                 firstPlayerIdentifier:@"player-alpha"
+                                                                                secondPlayerIdentifier:@"player-bravo"
+                                                                                  synchronizedStartDate:[NSDate dateWithTimeIntervalSince1970:1700000100]];
+    NSError *error = nil;
+    FGChallengeRaceContract *decoded = [FGChallengeRaceContract contractFromDictionary:contract.dictionaryRepresentation error:&error];
+    NSArray<NSString *> *keys = @[ @"finishWindowSeconds", @"reconnectGraceSeconds", @"protocolVersion", @"compatibilityFingerprint" ];
+
+    FGRequire(decoded != nil && error == nil, @"canonical contract wire data decodes");
+    FGRequire([decoded usesCanonicalConfiguration], @"decoded production contract uses canonical versions and timers");
+    FGRequire([decoded.compatibilityFingerprint isEqualToString:FGChallengeCompatibilityFingerprint()],
+              @"decoded contract carries the constants-derived compatibility fingerprint");
+
+    for (NSString *key in keys) {
+        NSMutableDictionary *invalid = [contract.dictionaryRepresentation mutableCopy];
+        invalid[key] = [key hasSuffix:@"Seconds"] ? @99 : @"unsupported";
+        error = nil;
+        FGRequire([FGChallengeRaceContract contractFromDictionary:invalid error:&error] == nil,
+                  @"noncanonical production contract fails closed during wire decode");
+        FGRequire([error.domain isEqualToString:FGChallengeRaceContractErrorDomain],
+                  @"contract decode returns its machine-readable error domain");
+    }
+}
+
 int main(void)
 {
     @autoreleasepool {
         FGTestEqualContractsAreCompatibleAndDictionaryIsCanonical();
         FGTestCompatibilityFailsClosedWithMachineReadableReasonForEveryMaterialField();
         FGTestRejectsMalformedParticipantPair();
+        FGTestCanonicalContractRoundTripRejectsNoncanonicalWireRules();
         puts("PASS: Live Challenge race contract");
     }
     return 0;

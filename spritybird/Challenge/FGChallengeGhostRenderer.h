@@ -9,7 +9,10 @@
  */
 @interface FGChallengeGhostRenderer : NSObject
 
-- (instancetype)initWithGhostNode:(SKSpriteNode *)ghostNode NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithGhostNode:(SKSpriteNode *)ghostNode;
+- (instancetype)initWithGhostNode:(SKSpriteNode *)ghostNode
+                    playfieldMinY:(CGFloat)playfieldMinY
+                    playfieldMaxY:(CGFloat)playfieldMaxY NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
 - (void)renderAcceptedPacket:(FGChallengePacket *)packet;

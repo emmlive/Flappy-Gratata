@@ -1,5 +1,7 @@
 #import "FGChallengeCourseGenerator.h"
 
+#import <math.h>
+
 NSString * const FGChallengeCourseGenerationVersion1 = @"course-v1";
 
 const NSInteger FGChallengeCourseFirstObstaclePadding = 100;
@@ -7,6 +9,7 @@ const NSInteger FGChallengeCourseObstacleInterval = 130;
 const NSInteger FGChallengeCourseMinimumObstacleHeight = 60;
 const NSInteger FGChallengeCourseMaximumObstacleHeight = 180;
 const NSInteger FGChallengeCourseGapHeight = 120;
+const CGFloat FGChallengeCourseSpeedPointsPerSecond = 180.0;
 
 @interface FGChallengeObstacleDescriptor ()
 
@@ -118,12 +121,28 @@ const NSInteger FGChallengeCourseGapHeight = 120;
 - (NSArray<FGChallengeObstacleDescriptor *> *)obstaclesForSeed:(uint64_t)seed
                                                           count:(NSUInteger)count
 {
+    return [self obstaclesForSeed:seed startIndex:0 count:count];
+}
+
+- (NSArray<FGChallengeObstacleDescriptor *> *)obstaclesForSeed:(uint64_t)seed
+                                                     startIndex:(NSUInteger)startIndex
+                                                          count:(NSUInteger)count
+{
     NSMutableArray<FGChallengeObstacleDescriptor *> *descriptors = [NSMutableArray arrayWithCapacity:count];
     uint64_t state = seed;
     NSUInteger index;
+    NSUInteger endIndex;
 
-    for (index = 0; index < count; index += 1) {
+    if (count > NSUIntegerMax - startIndex) {
+        return @[];
+    }
+    endIndex = startIndex + count;
+
+    for (index = 0; index < endIndex; index += 1) {
         uint64_t randomValue = [self nextRandomValueFromState:&state];
+        if (index < startIndex) {
+            continue;
+        }
         NSInteger heightRange = FGChallengeCourseMaximumObstacleHeight - FGChallengeCourseMinimumObstacleHeight + 1;
         NSInteger bottomObstacleHeight = FGChallengeCourseMinimumObstacleHeight + (NSInteger)(randomValue % (uint64_t)heightRange);
         NSInteger horizontalOffset = FGChallengeCourseFirstObstaclePadding + (NSInteger)index * FGChallengeCourseObstacleInterval;
@@ -135,6 +154,40 @@ const NSInteger FGChallengeCourseGapHeight = 120;
     }
 
     return [descriptors copy];
+}
+
+- (NSUInteger)maximumReachableProgressAtElapsedTime:(NSTimeInterval)elapsedTime
+{
+    double travelledDistance;
+    double completedIntervals;
+
+    if (!isfinite(elapsedTime) || elapsedTime < 0.0) {
+        return 0;
+    }
+    travelledDistance = elapsedTime * FGChallengeCourseSpeedPointsPerSecond;
+    if (travelledDistance < FGChallengeCourseFirstObstaclePadding) {
+        return 0;
+    }
+    completedIntervals = floor((travelledDistance - FGChallengeCourseFirstObstaclePadding + 1.0e-7) /
+                               FGChallengeCourseObstacleInterval);
+    if (completedIntervals >= (double)NSUIntegerMax - 1.0) {
+        return NSUIntegerMax;
+    }
+    return (NSUInteger)completedIntervals + 1;
+}
+
+- (CGFloat)horizontalOffsetForObstacleIndex:(NSUInteger)obstacleIndex
+                                 elapsedTime:(NSTimeInterval)elapsedTime
+{
+    double logicalOffset;
+
+    if (!isfinite(elapsedTime) || elapsedTime < 0.0) {
+        return NAN;
+    }
+    logicalOffset = (double)FGChallengeCourseFirstObstaclePadding +
+                    ((double)obstacleIndex * (double)FGChallengeCourseObstacleInterval) -
+                    (elapsedTime * (double)FGChallengeCourseSpeedPointsPerSecond);
+    return isfinite(logicalOffset) ? (CGFloat)logicalOffset : NAN;
 }
 
 - (uint64_t)nextRandomValueFromState:(uint64_t *)state

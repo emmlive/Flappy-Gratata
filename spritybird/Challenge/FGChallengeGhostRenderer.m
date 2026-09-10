@@ -2,6 +2,8 @@
 
 #import "FGChallengePacket.h"
 
+#import <math.h>
+
 static const CGFloat FGChallengeGhostOpacity = 0.45;
 static const NSTimeInterval FGChallengeGhostMinimumInterpolationInterval = 1.0 / 60.0;
 static const NSTimeInterval FGChallengeGhostMaximumInterpolationInterval = 0.25;
@@ -18,6 +20,8 @@ static const NSTimeInterval FGChallengeGhostMaximumInterpolationInterval = 0.25;
 @property (nonatomic, assign) NSTimeInterval lastPacketTimestamp;
 @property (nonatomic, assign) NSTimeInterval lastUpdateTime;
 @property (nonatomic, assign) BOOL hasSnapshot;
+@property (nonatomic, assign) CGFloat playfieldMinY;
+@property (nonatomic, assign) CGFloat playfieldMaxY;
 
 @end
 
@@ -25,7 +29,14 @@ static const NSTimeInterval FGChallengeGhostMaximumInterpolationInterval = 0.25;
 
 - (instancetype)initWithGhostNode:(SKSpriteNode *)ghostNode
 {
-    if (ghostNode == nil) {
+    return [self initWithGhostNode:ghostNode playfieldMinY:0.0 playfieldMaxY:1.0];
+}
+
+- (instancetype)initWithGhostNode:(SKSpriteNode *)ghostNode
+                    playfieldMinY:(CGFloat)playfieldMinY
+                    playfieldMaxY:(CGFloat)playfieldMaxY
+{
+    if (ghostNode == nil || !isfinite(playfieldMinY) || !isfinite(playfieldMaxY) || playfieldMaxY <= playfieldMinY) {
         return nil;
     }
 
@@ -34,6 +45,8 @@ static const NSTimeInterval FGChallengeGhostMaximumInterpolationInterval = 0.25;
         _ghostNode = ghostNode;
         _ghostNode.alpha = FGChallengeGhostOpacity;
         _interpolationDuration = FGChallengeGhostMinimumInterpolationInterval;
+        _playfieldMinY = playfieldMinY;
+        _playfieldMaxY = playfieldMaxY;
     }
     return self;
 }
@@ -45,16 +58,17 @@ static const NSTimeInterval FGChallengeGhostMaximumInterpolationInterval = 0.25;
     }
 
     if (!self.hasSnapshot) {
-        self.ghostNode.position = CGPointMake(self.ghostNode.position.x, packet.birdY);
+        CGFloat mappedY = [self mappedYForNormalizedValue:packet.birdY];
+        self.ghostNode.position = CGPointMake(self.ghostNode.position.x, mappedY);
         self.ghostNode.zRotation = [self rotationForMotionHint:packet.motionHint];
-        self.startingY = packet.birdY;
-        self.targetY = packet.birdY;
+        self.startingY = mappedY;
+        self.targetY = mappedY;
         self.startingRotation = self.ghostNode.zRotation;
         self.targetRotation = self.ghostNode.zRotation;
         self.hasSnapshot = YES;
     } else {
         self.startingY = self.ghostNode.position.y;
-        self.targetY = packet.birdY;
+        self.targetY = [self mappedYForNormalizedValue:packet.birdY];
         self.startingRotation = self.ghostNode.zRotation;
         self.targetRotation = [self rotationForMotionHint:packet.motionHint];
         self.interpolationStartTime = self.lastUpdateTime;
@@ -62,6 +76,12 @@ static const NSTimeInterval FGChallengeGhostMaximumInterpolationInterval = 0.25;
     }
 
     self.lastPacketTimestamp = packet.timestamp;
+}
+
+- (CGFloat)mappedYForNormalizedValue:(CGFloat)normalizedValue
+{
+    CGFloat clampedValue = MAX(0.0, MIN(1.0, normalizedValue));
+    return self.playfieldMinY + (clampedValue * (self.playfieldMaxY - self.playfieldMinY));
 }
 
 - (void)updateAtTime:(NSTimeInterval)currentTime

@@ -17,6 +17,8 @@ LOBBY_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeLobbyViewContr
 LOBBY_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeLobbyViewController.m"
 RESULTS_HEADER = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewController.h"
 RESULTS_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeResultsViewController.m"
+TRANSPORT_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Challenge/FGChallengeTransport.m"
+APPLICATION_INFO_PLIST = REPOSITORY_ROOT / "spritybird/Supporting Files/Flappy Gratata-Info.plist"
 ROOT_VIEW_CONTROLLER_HEADER = REPOSITORY_ROOT / "spritybird/Classes/Controllers/ViewController.h"
 ROOT_VIEW_CONTROLLER_IMPLEMENTATION = REPOSITORY_ROOT / "spritybird/Classes/Controllers/ViewController.m"
 PBX_PROJECT = REPOSITORY_ROOT / "Flappy Gratata.xcodeproj/project.pbxproj"
@@ -237,7 +239,7 @@ class FGChallengeSourceContractTests(unittest.TestCase):
             re.MULTILINE,
         )
         self.assertEqual(
-            ["initWithGhostNode", "init", "renderAcceptedPacket", "updateAtTime"],
+            ["initWithGhostNode", "initWithGhostNode", "init", "renderAcceptedPacket", "updateAtTime"],
             public_methods,
         )
 
@@ -260,7 +262,7 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertNotRegex(source, r'#import\s+[<"]GameKit/GameKit\.h[>"]')
         self.assertNotRegex(source, r'FGChallengeRecordStore|FGChallengeResultVerifier|FGChallengeTransport')
 
-        self.assertIn("FGChallengeRaceSceneFloorScrollSpeed = 3.0", implementation)
+        self.assertIn("FGChallengeCourseSpeedPointsPerSecond", implementation)
         self.assertIn("FGChallengeRaceSceneGapHeight = 120.0", implementation)
         self.assertIn("FGChallengeRaceSceneFirstObstaclePadding = 100.0", implementation)
         self.assertIn("FGChallengeRaceSceneMinimumObstacleHeight = 60.0", implementation)
@@ -283,8 +285,12 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("localProgressCheckpoint", header)
         self.assertIn("localScore", header)
         self.assertIn("localFinalRecord", header)
-        self.assertIn("self.localProgressCheckpoint += 1", implementation)
-        self.assertIn("self.localScore += 1", implementation)
+        self.assertIn("maximumReachableProgressAtElapsedTime:", implementation)
+        self.assertIn("horizontalOffsetForObstacleIndex:", implementation)
+        self.assertIn("ensureObstacleWindowForElapsedTime:", implementation)
+        self.assertIn('self.localFinalRecord[@"elapsedTime"]', implementation)
+        self.assertNotRegex(implementation, r"position\.x\s*-\s*FGChallenge")
+        self.assertNotRegex(implementation, r"ceil\s*\(\s*self\.size\.width")
         self.assertIn("notifyDelegateOfLocalFinalRecord", implementation)
         self.assertIn("_eventDelegate = (id<FGChallengeRaceSceneEventDelegate>)coordinator", implementation)
         self.assertNotRegex(source, r'FGChallengeRecordStore|FGChallengeResultVerifier|FGChallengeTransport')
@@ -310,7 +316,7 @@ class FGChallengeSourceContractTests(unittest.TestCase):
             re.MULTILINE,
         )
         self.assertEqual(
-            ["initWithSize", "init", "startRaceAtTime", "receiveAcceptedRemotePacket", "update"],
+            ["initWithSize", "init", "startRaceAtTime", "finishRaceAtTime", "receiveAcceptedRemotePacket", "update"],
             public_methods,
         )
 
@@ -389,6 +395,15 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("canChangeReady", implementation)
         self.assertIn("FGChallengeCoordinatorStateLobby", implementation)
         self.assertIn("FGChallengeCoordinatorStateReady", implementation)
+        self.assertIn("activateNetworkSession", implementation)
+        self.assertIn("CADisplayLink", implementation)
+        self.assertIn("advanceToDate:[NSDate date]", implementation)
+        self.assertIn("UIApplicationDidEnterBackgroundNotification", implementation)
+        self.assertIn("UIApplicationWillEnterForegroundNotification", implementation)
+        self.assertIn("FGChallengeRaceScene", implementation)
+        self.assertIn("FGChallengeGhostRenderer", implementation)
+        self.assertIn("FGChallengeResultsViewController", implementation)
+        self.assertIn('forKeyPath:@"lastAcceptedRemotePacket"', implementation)
 
         version_failure_handler = re.search(
             r"-\s*\(void\)challengeTransport:\(FGChallengeTransport \*\)transport\s+"
@@ -429,6 +444,8 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn("FGChallengeCoordinator", source)
         self.assertIn("aggregateRecord", implementation)
         self.assertIn("requestRematchWithContract", implementation)
+        self.assertIn("Progress — You:", implementation)
+        self.assertIn("Rules", implementation)
 
         for outcome in (
             "FGChallengeOutcomeWin",
@@ -452,6 +469,27 @@ class FGChallengeSourceContractTests(unittest.TestCase):
 
         self.assertNotIn("recordVerifiedMatch", source)
         self.assertNotIn("recordVoidDiagnostic", source)
+
+    def test_gamekit_transport_is_friends_only_and_handles_invites_and_reconnects(self):
+        """Prevents public automatch/deprecated picker use and missing invite/reconnect callbacks."""
+        implementation = TRANSPORT_IMPLEMENTATION.read_text(encoding="utf-8")
+
+        self.assertNotIn("GKMatchmakerViewController", implementation)
+        self.assertIn("loadFriendsWithCompletionHandler", implementation)
+        self.assertIn("request.recipients", implementation)
+        self.assertIn("findMatchForRequest", implementation)
+        self.assertIn("matchForInvite", implementation)
+        self.assertIn("shouldReinviteDisconnectedPlayer", implementation)
+        self.assertIn("self.reconnectAllowed", implementation)
+        self.assertIn("gamePlayerID", implementation)
+        self.assertIn("NSGKFriendListUsageDescription", APPLICATION_INFO_PLIST.read_text(encoding="utf-8"))
+
+    def test_root_keeps_challenge_transport_alive_and_surfaces_unavailable_state(self):
+        implementation = ROOT_VIEW_CONTROLLER_IMPLEMENTATION.read_text(encoding="utf-8")
+
+        self.assertIn("challengeTransport", implementation)
+        self.assertIn("pendingChallengePresentation", implementation)
+        self.assertIn("Game Center unavailable", implementation)
 
 
 if __name__ == "__main__":

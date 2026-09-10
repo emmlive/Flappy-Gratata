@@ -1,11 +1,26 @@
 #import "FGChallengeLobbyViewController.h"
 
 #import "FGChallengeCoordinator.h"
+#import "FGChallengeCourseGenerator.h"
+#import "FGChallengeGhostRenderer.h"
 #import "FGChallengePacket.h"
+#import "FGChallengeRaceScene.h"
+#import "FGChallengeResultsViewController.h"
+#import "FGChallengeResultVerifier.h"
 #import "FGChallengeTransport.h"
+
+#import <SpriteKit/SpriteKit.h>
+#import <QuartzCore/QuartzCore.h>
+#import <math.h>
 
 static void *FGChallengeLobbyCoordinatorObservationContext = &FGChallengeLobbyCoordinatorObservationContext;
 static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTransportObservationContext;
+
+@class FGChallengeLobbyViewController;
+@interface FGChallengeDisplayLinkTarget : NSObject
+@property (nonatomic, weak) FGChallengeLobbyViewController *owner;
+- (void)displayLinkDidFire:(CADisplayLink *)displayLink;
+@end
 
 @interface FGChallengeLobbyViewController () <FGChallengeTransportDelegate>
 
@@ -25,6 +40,12 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
 @property (nonatomic, assign) BOOL closeRequested;
 @property (nonatomic, assign) BOOL observingChallengeState;
 @property (nonatomic, assign) FGChallengeCoordinatorState observedCoordinatorState;
+@property (nonatomic, strong) CADisplayLink *displayLink;
+@property (nonatomic, strong) FGChallengeDisplayLinkTarget *displayLinkTarget;
+@property (nonatomic, strong) FGChallengeRaceScene *raceScene;
+@property (nonatomic, strong) UIViewController *raceViewController;
+@property (nonatomic, assign) BOOL resultsPresented;
+@property (nonatomic, assign) BOOL appBackgrounded;
 
 @end
 
@@ -44,6 +65,7 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
         _forwardedTransportDelegate = transport.delegate;
         _transport.delegate = self;
         _observedCoordinatorState = coordinator.state;
+        [coordinator activateNetworkSession];
         [self beginObservingChallengeState];
     }
     return self;
@@ -202,6 +224,7 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
     ]];
 
     [self refreshLobby];
+    [self startLifecycleClock];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -218,6 +241,8 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
 
 - (void)dealloc
 {
+    [self.displayLink invalidate];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self endObservingChallengeState];
     if (self.transport.delegate == self) {
         self.transport.delegate = self.forwardedTransportDelegate;
@@ -337,6 +362,9 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
 
 - (void)challengeTransportDidAcceptInvitation:(FGChallengeTransport *)transport
 {
+    if (self.coordinator.state == FGChallengeCoordinatorStateIdle) {
+        [self.coordinator beginInvitation];
+    }
     if ([self.forwardedTransportDelegate respondsToSelector:@selector(challengeTransportDidAcceptInvitation:)]) {
         [self.forwardedTransportDelegate challengeTransportDidAcceptInvitation:transport];
     }
@@ -453,6 +481,10 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
                         forKeyPath:@"peerPlayerIdentifier"
                            options:NSKeyValueObservingOptionNew
                            context:FGChallengeLobbyCoordinatorObservationContext];
+    [self.coordinator addObserver:self
+                        forKeyPath:@"lastAcceptedRemotePacket"
+                           options:NSKeyValueObservingOptionNew
+                           context:FGChallengeLobbyCoordinatorObservationContext];
     [self.transport addObserver:self
                       forKeyPath:@"available"
                          options:NSKeyValueObservingOptionNew
@@ -476,6 +508,7 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
 
     [self.coordinator removeObserver:self forKeyPath:@"state" context:FGChallengeLobbyCoordinatorObservationContext];
     [self.coordinator removeObserver:self forKeyPath:@"peerPlayerIdentifier" context:FGChallengeLobbyCoordinatorObservationContext];
+    [self.coordinator removeObserver:self forKeyPath:@"lastAcceptedRemotePacket" context:FGChallengeLobbyCoordinatorObservationContext];
     [self.transport removeObserver:self forKeyPath:@"available" context:FGChallengeLobbyTransportObservationContext];
     [self.transport removeObserver:self forKeyPath:@"authenticated" context:FGChallengeLobbyTransportObservationContext];
     [self.transport removeObserver:self forKeyPath:@"localPlayerIdentifier" context:FGChallengeLobbyTransportObservationContext];
@@ -514,12 +547,141 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
              strongSelf.observedCoordinatorState == FGChallengeCoordinatorStateReady);
         strongSelf.observedCoordinatorState = currentState;
 
+        if ([keyPath isEqualToString:@"lastAcceptedRemotePacket"] &&
+            [change[NSKeyValueChangeNewKey] isKindOfClass:[FGChallengePacket class]]) {
+            [strongSelf.raceScene receiveAcceptedRemotePacket:change[NSKeyValueChangeNewKey]];
+        }
+
         if (lostPreRaceConnection) {
             [strongSelf showConnectionLostBeforeStart];
         } else {
+            [strongSelf handleCoordinatorState:currentState];
             [strongSelf refreshLobby];
         }
     });
+}
+
+- (void)startLifecycleClock
+{
+    if (self.displayLink != nil) {
+        return;
+    }
+    self.displayLinkTarget = [[FGChallengeDisplayLinkTarget alloc] init];
+    self.displayLinkTarget.owner = self;
+    self.displayLink = [CADisplayLink displayLinkWithTarget:self.displayLinkTarget
+                                                   selector:@selector(displayLinkDidFire:)];
+    [self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidEnterBackground:)
+                                                 name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillEnterForeground:)
+                                                 name:UIApplicationWillEnterForegroundNotification object:nil];
+}
+
+- (void)advanceChallengeClock
+{
+    [self.coordinator advanceToDate:[NSDate date]];
+}
+
+- (void)applicationDidEnterBackground:(NSNotification *)notification
+{
+    (void)notification;
+    self.appBackgrounded = YES;
+    NSDate *now = [NSDate date];
+    [self.coordinator recordLocalDisconnectedAtDate:now];
+    [self.coordinator advanceToDate:now];
+}
+
+- (void)applicationWillEnterForeground:(NSNotification *)notification
+{
+    (void)notification;
+    NSDate *now = [NSDate date];
+    if (self.appBackgrounded) {
+        [self.coordinator recordLocalReconnectedAtDate:now];
+        self.appBackgrounded = NO;
+    }
+    [self.coordinator advanceToDate:now];
+}
+
+- (void)handleCoordinatorState:(FGChallengeCoordinatorState)state
+{
+    if (state == FGChallengeCoordinatorStateCountdown) {
+        NSTimeInterval remaining = MAX(0.0, [self.coordinator.activeContract.synchronizedStartDate timeIntervalSinceDate:[NSDate date]]);
+        self.statusLabel.text = [NSString stringWithFormat:@"Countdown — %.0f", ceil(remaining)];
+        [self presentRaceForActiveContract];
+    } else if (state == FGChallengeCoordinatorStateVerifying) {
+        [self.raceScene finishRaceAtTime:CACurrentMediaTime()];
+    } else if (state == FGChallengeCoordinatorStateResults || state == FGChallengeCoordinatorStateVoided) {
+        [self presentResults];
+    }
+}
+
+- (void)presentRaceForActiveContract
+{
+    if (self.coordinator.activeContract == nil) {
+        return;
+    }
+    if (self.raceViewController != nil) {
+        if (!self.resultsPresented) {
+            return;
+        }
+        __weak typeof(self) weakSelf = self;
+        [self dismissViewControllerAnimated:NO completion:^{
+            FGChallengeLobbyViewController *strongSelf = weakSelf;
+            strongSelf.raceScene = nil;
+            strongSelf.raceViewController = nil;
+            strongSelf.resultsPresented = NO;
+            [strongSelf presentRaceForActiveContract];
+        }];
+        return;
+    }
+    FGChallengeCourseGenerator *generator = [[FGChallengeCourseGenerator alloc]
+        initWithCourseGenerationVersion:self.coordinator.activeContract.courseGenerationVersion];
+    CGSize sceneSize = self.view.bounds.size;
+    SKSpriteNode *ghostNode = [SKSpriteNode spriteNodeWithImageNamed:@"bird_1"];
+    ghostNode.name = @"challenge-remote-ghost";
+    ghostNode.position = CGPointMake(100.0, CGRectGetMidY(self.view.bounds));
+    FGChallengeGhostRenderer *ghostRenderer = [[FGChallengeGhostRenderer alloc]
+        initWithGhostNode:ghostNode playfieldMinY:20.0 playfieldMaxY:MAX(21.0, sceneSize.height - 20.0)];
+    FGChallengeRaceScene *raceScene = [[FGChallengeRaceScene alloc]
+        initWithSize:sceneSize
+        raceContract:self.coordinator.activeContract
+        courseGenerator:generator
+        coordinator:self.coordinator
+        ghostRenderer:ghostRenderer];
+    if (raceScene == nil) {
+        [self.coordinator voidMatch];
+        return;
+    }
+    [raceScene addChild:ghostNode];
+    raceScene.scaleMode = SKSceneScaleModeAspectFill;
+    SKView *raceView = [[SKView alloc] initWithFrame:self.view.bounds];
+    raceView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [raceView presentScene:raceScene];
+    UIViewController *raceViewController = [[UIViewController alloc] init];
+    raceViewController.view = raceView;
+    raceViewController.modalPresentationStyle = UIModalPresentationFullScreen;
+    self.raceScene = raceScene;
+    self.raceViewController = raceViewController;
+    [self presentViewController:raceViewController animated:YES completion:nil];
+}
+
+- (void)presentResults
+{
+    if (self.resultsPresented) {
+        return;
+    }
+    self.resultsPresented = YES;
+    FGChallengeVerifiedResult *result = [FGChallengeVerifiedResult resultWithLocalOutcome:self.coordinator.outcome
+                                                                                  verified:self.coordinator.isResultVerified
+                                                                                    reason:self.coordinator.resultReason];
+    FGChallengeResultsViewController *results = [[FGChallengeResultsViewController alloc]
+        initWithVerifiedResult:result
+        recordStore:self.coordinator.recordStore
+        coordinator:self.coordinator
+        rematchContractProvider:nil];
+    results.modalPresentationStyle = UIModalPresentationFullScreen;
+    UIViewController *presenter = self.raceViewController ?: self;
+    [presenter presentViewController:results animated:YES completion:nil];
 }
 
 - (BOOL)canChangeReady
@@ -637,6 +799,16 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
     self.statusLabel.text = self.preRaceFailureMessage;
     self.inviteButton.enabled = NO;
     self.readyButton.enabled = NO;
+}
+
+@end
+
+@implementation FGChallengeDisplayLinkTarget
+
+- (void)displayLinkDidFire:(CADisplayLink *)displayLink
+{
+    (void)displayLink;
+    [self.owner advanceChallengeClock];
 }
 
 @end

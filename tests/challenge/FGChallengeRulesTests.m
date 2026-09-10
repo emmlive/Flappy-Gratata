@@ -34,6 +34,14 @@
     XCTAssertEqualWithAccuracy(FGChallengeReconnectGraceSeconds, 5.0, 0.000001);
 }
 
+- (void)testCanonicalCompatibilityFingerprintIsDerivedFromChallengeConstants
+{
+    XCTAssertEqualObjects(FGChallengeGameplayRulesetVersion, @"rules-v1");
+    XCTAssertEqualObjects(FGChallengeProtocolVersion, @"protocol-v2");
+    XCTAssertEqualWithAccuracy(FGChallengeCountdownSeconds, 3.0, 0.000001);
+    XCTAssertEqualObjects(FGChallengeCompatibilityFingerprint(), @"fnv1a64:a382783814a387a5");
+}
+
 - (void)testGreaterProgressWins
 {
     XCTAssertEqual(FGChallengeCompareProgress(12.0, 4, 11.5, 9), FGChallengeOutcomeWin);
@@ -82,6 +90,15 @@ static void FGTestReconnectGraceIsFiveSeconds(void)
     FGRequire(fabs(FGChallengeReconnectGraceSeconds - 5.0) < 0.000001, @"reconnect grace is five seconds");
 }
 
+static void FGTestCanonicalCompatibilityFingerprintIsDerivedFromChallengeConstants(void)
+{
+    FGRequire([FGChallengeGameplayRulesetVersion isEqualToString:@"rules-v1"], @"gameplay ruleset version is canonical");
+    FGRequire([FGChallengeProtocolVersion isEqualToString:@"protocol-v2"], @"protocol version covers the ordered control packet contract");
+    FGRequire(fabs(FGChallengeCountdownSeconds - 3.0) < 0.000001, @"countdown is three seconds");
+    FGRequire([FGChallengeCompatibilityFingerprint() isEqualToString:@"fnv1a64:a382783814a387a5"],
+              @"fingerprint is the hand-derived digest of the Challenge compatibility constants");
+}
+
 static void FGTestGreaterProgressWins(void)
 {
     FGRequire(FGChallengeCompareProgress(12.0, 4, 11.5, 9) == FGChallengeOutcomeWin, @"greater progress wins");
@@ -113,6 +130,7 @@ int main(void)
     @autoreleasepool {
         FGTestFinishWindowIsThreeSeconds();
         FGTestReconnectGraceIsFiveSeconds();
+        FGTestCanonicalCompatibilityFingerprintIsDerivedFromChallengeConstants();
         FGTestGreaterProgressWins();
         FGTestEqualProgressComparesScore();
         FGTestExactTieReturnsDraw();

@@ -64,6 +64,32 @@ static FGChallengePacket *FGChallengeTestPacket(uint64_t sequenceNumber)
     XCTAssertTrue(parsed.alive);
     XCTAssertFalse(parsed.disconnected);
     XCTAssertEqualObjects(parsed.finalRecord, (@{ @"finished": @YES, @"score": @8 }));
+    XCTAssertEqual(parsed.kind, FGChallengePacketKindRaceState);
+}
+
+- (void)testOrderedReadyAndContractControlPacketsRoundTrip
+{
+    FGChallengePacket *ready = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindReady
+                                                          raceIdentifier:@"lobby:alpha|bravo"
+                                                        playerIdentifier:@"player-alpha"
+                                                          sequenceNumber:1
+                                                               timestamp:0
+                                                                 payload:@{ @"ready": @YES }];
+    FGChallengePacket *contract = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindContract
+                                                             raceIdentifier:@"lobby:alpha|bravo"
+                                                           playerIdentifier:@"player-alpha"
+                                                             sequenceNumber:2
+                                                                  timestamp:0
+                                                                    payload:@{ @"contract": @{ @"raceIdentifier": @"race-control" } }];
+    NSError *error = nil;
+    FGChallengePacket *decodedReady = [FGChallengePacket packetFromDictionary:ready.dictionaryRepresentation error:&error];
+    FGChallengePacket *decodedContract = [FGChallengePacket packetFromDictionary:contract.dictionaryRepresentation error:&error];
+
+    XCTAssertEqual(decodedReady.kind, FGChallengePacketKindReady);
+    XCTAssertEqualObjects(decodedReady.payload[@"ready"], @YES);
+    XCTAssertEqual(decodedContract.kind, FGChallengePacketKindContract);
+    XCTAssertEqualObjects(decodedContract.payload[@"contract"][@"raceIdentifier"], @"race-control");
+    XCTAssertTrue([contract shouldAcceptAfterPacket:ready]);
 }
 
 - (void)testMalformedPacketFailsClosed
@@ -145,6 +171,33 @@ static void FGTestPacketRoundTripPreservesTheCanonicalSnapshot(void)
     FGRequire(parsed.alive, @"round trip preserves alive state");
     FGRequire(!parsed.disconnected, @"round trip preserves disconnect state");
     FGRequire([parsed.finalRecord isEqual:@{ @"finished": @YES, @"score": @8 }], @"round trip preserves an optional final record");
+    FGRequire(parsed.kind == FGChallengePacketKindRaceState, @"legacy state initializer produces an explicit race-state packet");
+}
+
+static void FGTestOrderedReadyAndContractControlPacketsRoundTrip(void)
+{
+    FGChallengePacket *ready = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindReady
+                                                          raceIdentifier:@"lobby:alpha|bravo"
+                                                        playerIdentifier:@"player-alpha"
+                                                          sequenceNumber:1
+                                                               timestamp:0
+                                                                 payload:@{ @"ready": @YES }];
+    FGChallengePacket *contract = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindContract
+                                                             raceIdentifier:@"lobby:alpha|bravo"
+                                                           playerIdentifier:@"player-alpha"
+                                                             sequenceNumber:2
+                                                                  timestamp:0
+                                                                    payload:@{ @"contract": @{ @"raceIdentifier": @"race-control" } }];
+    NSError *error = nil;
+    FGChallengePacket *decodedReady = [FGChallengePacket packetFromDictionary:ready.dictionaryRepresentation error:&error];
+    FGChallengePacket *decodedContract = [FGChallengePacket packetFromDictionary:contract.dictionaryRepresentation error:&error];
+
+    FGRequire(decodedReady.kind == FGChallengePacketKindReady && [decodedReady.payload[@"ready"] boolValue],
+              @"ready control packet round trips with its exact state");
+    FGRequire(decodedContract.kind == FGChallengePacketKindContract &&
+              [decodedContract.payload[@"contract"][@"raceIdentifier"] isEqualToString:@"race-control"],
+              @"contract control packet round trips without losing its representation");
+    FGRequire([contract shouldAcceptAfterPacket:ready], @"control messages retain monotonic stream ordering");
 }
 
 static void FGTestMalformedPacketFailsClosed(void)
@@ -199,6 +252,7 @@ int main(void)
 {
     @autoreleasepool {
         FGTestPacketRoundTripPreservesTheCanonicalSnapshot();
+        FGTestOrderedReadyAndContractControlPacketsRoundTrip();
         FGTestMalformedPacketFailsClosed();
         FGTestMissingRaceIdentifierFailsClosed();
         FGTestDuplicateSequenceIsNotAccepted();

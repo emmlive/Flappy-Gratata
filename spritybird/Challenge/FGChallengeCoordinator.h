@@ -39,6 +39,11 @@ typedef NS_ENUM(NSInteger, FGChallengeCoordinatorState) {
 @property (nonatomic, assign, readonly) NSUInteger localProgressCheckpoint;
 @property (nonatomic, assign, readonly) NSInteger localScore;
 @property (nonatomic, copy, readonly) NSDictionary<NSString *, id> *latestLocalFinalRecord;
+@property (nonatomic, assign, readonly, getter=isNetworkSessionActive) BOOL networkSessionActive;
+@property (nonatomic, assign, readonly) NSUInteger remoteProgressCheckpoint;
+@property (nonatomic, assign, readonly) NSInteger remoteScore;
+@property (nonatomic, strong, readonly) FGChallengePacket *lastAcceptedRemotePacket;
+@property (nonatomic, strong, readonly) FGChallengeRecordStore *recordStore;
 
 - (instancetype)initWithTransport:(id<FGChallengeTransporting>)transport
                     resultVerifier:(FGChallengeResultVerifier *)resultVerifier
@@ -47,6 +52,7 @@ typedef NS_ENUM(NSInteger, FGChallengeCoordinatorState) {
 - (instancetype)init NS_UNAVAILABLE;
 
 - (BOOL)beginInvitation;
+- (BOOL)activateNetworkSession;
 - (BOOL)beginLobbyWithPeerIdentifier:(NSString *)peerIdentifier;
 - (BOOL)updateLocalReady:(BOOL)ready;
 - (BOOL)updateRemoteReady:(BOOL)ready;
@@ -62,6 +68,9 @@ typedef NS_ENUM(NSInteger, FGChallengeCoordinatorState) {
 - (BOOL)recordLocalReconnectedAtDate:(NSDate *)date;
 - (BOOL)recordPeerReconnectedAtDate:(NSDate *)date;
 - (BOOL)advanceToDate:(NSDate *)date;
+- (BOOL)receiveRemotePacket:(FGChallengePacket *)packet
+       fromPlayerIdentifier:(NSString *)playerIdentifier
+                     atDate:(NSDate *)receiptDate;
 
 // remoteDerivedOutcome is expressed from the remote player's perspective.
 // A local win therefore agrees with a remote loss, rather than a remote win.
@@ -70,6 +79,7 @@ typedef NS_ENUM(NSInteger, FGChallengeCoordinatorState) {
                            remoteDerivedOutcome:(FGChallengeOutcome)remoteDerivedOutcome;
 
 - (BOOL)requestRematchWithContract:(FGChallengeRaceContract *)contract;
+- (BOOL)requestNetworkRematchAtDate:(NSDate *)date;
 - (BOOL)voidMatch;
 
 @end

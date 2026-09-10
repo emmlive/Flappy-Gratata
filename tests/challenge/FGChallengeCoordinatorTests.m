@@ -28,14 +28,17 @@
 @property (nonatomic, assign, getter=isAuthenticated) BOOL authenticated;
 @property (nonatomic, copy) NSString *localPlayerIdentifier;
 @property (nonatomic, assign) NSUInteger sentPacketCount;
+@property (nonatomic, assign) BOOL reconnectAllowed;
+@property (nonatomic, strong) FGChallengePacket *lastSentPacket;
 @end
 
 @implementation FGChallengeCoordinatorFakeTransport
 - (instancetype)init { self = [super init]; if (self) { _available = YES; _authenticated = YES; _localPlayerIdentifier = @"player-alpha"; } return self; }
 - (void)authenticate {}
 - (void)authenticateFromViewController:(UIViewController *)viewController { (void)viewController; }
+- (void)setPresentationViewController:(UIViewController *)viewController { (void)viewController; }
 - (void)beginFriendInvitationFromViewController:(UIViewController *)viewController { (void)viewController; }
-- (BOOL)sendPacket:(FGChallengePacket *)packet toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers error:(NSError * __autoreleasing *)error { (void)packet; (void)playerIdentifiers; if (error != NULL) *error = nil; self.sentPacketCount++; return YES; }
+- (BOOL)sendPacket:(FGChallengePacket *)packet toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers error:(NSError * __autoreleasing *)error { (void)playerIdentifiers; if (error != NULL) *error = nil; self.sentPacketCount++; self.lastSentPacket = packet; return YES; }
 - (void)disconnect {}
 @end
 
@@ -81,7 +84,7 @@ static NSDictionary<NSString *, id> *FGCoordinatorFinalRecord(NSString *raceIden
               @"compatibilityFingerprint": @"classic-constants-v1",
               @"progressCheckpoint": @(progress), @"score": @(score),
               @"crashed": @YES, @"disconnected": @(disconnected),
-              @"disconnectDurationSeconds": @(duration) };
+              @"disconnectDurationSeconds": @(duration), @"elapsedTime": @60.0 };
 }
 
 static FGChallengeCoordinator *FGCoordinatorWithDependencies(FGChallengeCoordinatorFakeTransport **transportOut,
@@ -645,6 +648,239 @@ static FGChallengeCoordinator *FGCoordinatorAwaitingVerification(NSString *raceI
     XCTAssertTrue(coordinator.isResultVerified);
 }
 
+- (void)testProductionReadyExchangeLocksCanonicalContractAndClockStartsRace
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    NSDate *receiveDate = [NSDate dateWithTimeIntervalSince1970:1700000200];
+
+    XCTAssertTrue([coordinator activateNetworkSession]);
+    XCTAssertTrue([coordinator beginInvitation]);
+    XCTAssertTrue([coordinator beginLobbyWithPeerIdentifier:@"player-bravo"]);
+    XCTAssertTrue([coordinator updateLocalReady:YES]);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindReady);
+
+    FGChallengePacket *remoteReady = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindReady
+                                                                raceIdentifier:transport.lastSentPacket.raceIdentifier
+                                                              playerIdentifier:@"player-bravo"
+                                                                sequenceNumber:1
+                                                                     timestamp:0
+                                                                       payload:@{ @"ready": @YES }];
+    XCTAssertTrue([coordinator receiveRemotePacket:remoteReady
+                              fromPlayerIdentifier:@"player-bravo"
+                                            atDate:receiveDate]);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindContract);
+    NSDictionary *contractRepresentation = transport.lastSentPacket.payload[@"contract"];
+    XCTAssertNotNil(contractRepresentation);
+
+    FGChallengePacket *acknowledgement = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindContractAcknowledgement
+                                                                    raceIdentifier:remoteReady.raceIdentifier
+                                                                  playerIdentifier:@"player-bravo"
+                                                                    sequenceNumber:2
+                                                                         timestamp:0
+                                                                           payload:@{}];
+    XCTAssertTrue([coordinator receiveRemotePacket:acknowledgement
+                              fromPlayerIdentifier:@"player-bravo"
+                                            atDate:[receiveDate dateByAddingTimeInterval:0.1]]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateCountdown);
+    XCTAssertTrue([coordinator.activeContract usesCanonicalConfiguration]);
+    XCTAssertEqualObjects(coordinator.activeContract.dictionaryRepresentation, contractRepresentation);
+
+    XCTAssertTrue([coordinator advanceToDate:coordinator.activeContract.synchronizedStartDate]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateRacing);
+    XCTAssertTrue(transport.reconnectAllowed);
+}
+
+- (void)testRemoteCanBecomeReadyBeforeLocalContractAuthority
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    XCTAssertTrue([coordinator activateNetworkSession] && [coordinator beginInvitation] &&
+                  [coordinator beginLobbyWithPeerIdentifier:@"player-bravo"]);
+    FGChallengePacket *remoteReady = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindReady
+                                                                raceIdentifier:@"lobby:12:player-alpha12:player-bravo"
+                                                              playerIdentifier:@"player-bravo"
+                                                                sequenceNumber:1 timestamp:0 payload:@{ @"ready": @YES }];
+    XCTAssertTrue([coordinator receiveRemotePacket:remoteReady fromPlayerIdentifier:@"player-bravo" atDate:[NSDate date]]);
+    XCTAssertTrue([coordinator updateLocalReady:YES]);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindContract);
+}
+
+- (void)testReceivedRaceStateMustBeCoursePossibleAndUsesReceiptTimeForDeadline
+{
+    FGChallengeCoordinator *coordinator = FGCoordinator(NULL);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-packet-validation");
+    NSDate *start = contract.synchronizedStartDate;
+
+    XCTAssertTrue(FGCoordinatorPrepareRace(coordinator, contract));
+    FGChallengePacket *(^packet)(uint64_t, NSTimeInterval, NSUInteger, NSInteger, BOOL) =
+        ^FGChallengePacket *(uint64_t sequence, NSTimeInterval elapsed, NSUInteger progress, NSInteger score, BOOL alive) {
+            return [[FGChallengePacket alloc] initWithRaceIdentifier:contract.raceIdentifier
+                                                    playerIdentifier:@"player-bravo"
+                                                      sequenceNumber:sequence
+                                                           timestamp:elapsed
+                                                  progressCheckpoint:progress
+                                                               score:score
+                                                               birdY:0.5
+                                                          motionHint:0.0
+                                                               alive:alive
+                                                        disconnected:NO
+                                                         finalRecord:nil];
+        };
+
+    XCTAssertFalse([coordinator receiveRemotePacket:packet(1, 1.0, 42, 8, YES)
+                                       fromPlayerIdentifier:@"player-bravo"
+                                                     atDate:[start dateByAddingTimeInterval:1.2]]);
+    XCTAssertFalse([coordinator receiveRemotePacket:packet(2, 1.0, 1, 2, YES)
+                                       fromPlayerIdentifier:@"player-bravo"
+                                                     atDate:[start dateByAddingTimeInterval:1.2]]);
+    XCTAssertFalse([coordinator receiveRemotePacket:packet(3, 10.0, 1, 1, YES)
+                                       fromPlayerIdentifier:@"player-bravo"
+                                                     atDate:[start dateByAddingTimeInterval:1.2]]);
+    XCTAssertTrue([coordinator receiveRemotePacket:packet(4, 1.0, 1, 1, YES)
+                                      fromPlayerIdentifier:@"player-bravo"
+                                                    atDate:[start dateByAddingTimeInterval:1.2]]);
+
+    NSDate *crashReceipt = [start dateByAddingTimeInterval:2.0];
+    XCTAssertTrue([coordinator receiveRemotePacket:packet(5, 1.1, 1, 1, NO)
+                                      fromPlayerIdentifier:@"player-bravo"
+                                                    atDate:crashReceipt]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateFinishWindow);
+    XCTAssertTrue([coordinator advanceToDate:[crashReceipt dateByAddingTimeInterval:2.99]]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateFinishWindow);
+    XCTAssertTrue([coordinator advanceToDate:[crashReceipt dateByAddingTimeInterval:3.0]]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateVerifying);
+}
+
+- (void)testProductionFinalExchangeUsesCanonicalVerifierAndRecordsResult
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeRecordStore *records;
+    FGChallengeCoordinator *coordinator = FGCoordinatorWithRecordStore(&transport, &records);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-network-final");
+    NSDate *finishDate = [contract.synchronizedStartDate dateByAddingTimeInterval:60.0];
+    NSDictionary *localFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0);
+    NSDictionary *remoteFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-bravo", 6, 4, NO, 0);
+
+    XCTAssertTrue([coordinator activateNetworkSession]);
+    XCTAssertTrue(FGCoordinatorPrepareRace(coordinator, contract));
+    XCTAssertTrue([coordinator recordLocalCrashAtDate:finishDate]);
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, localFinal);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindRaceState);
+    XCTAssertEqualObjects(transport.lastSentPacket.finalRecord, localFinal);
+
+    FGChallengePacket *remoteFinalPacket = [[FGChallengePacket alloc] initWithRaceIdentifier:contract.raceIdentifier
+                                                                            playerIdentifier:@"player-bravo"
+                                                                              sequenceNumber:1
+                                                                                   timestamp:60.0
+                                                                          progressCheckpoint:6
+                                                                                       score:4
+                                                                                       birdY:0.5
+                                                                                  motionHint:0.0
+                                                                                       alive:NO
+                                                                                disconnected:NO
+                                                                                 finalRecord:remoteFinal];
+    XCTAssertTrue([coordinator receiveRemotePacket:remoteFinalPacket
+                              fromPlayerIdentifier:@"player-bravo"
+                                            atDate:[finishDate dateByAddingTimeInterval:0.1]]);
+    XCTAssertTrue([coordinator advanceToDate:[finishDate dateByAddingTimeInterval:3.0]]);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindVerification);
+    XCTAssertEqualObjects(transport.lastSentPacket.payload[@"derivedOutcome"], @(FGChallengeOutcomeWin));
+
+    FGChallengePacket *remoteVerification = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindVerification
+                                                                        raceIdentifier:contract.raceIdentifier
+                                                                      playerIdentifier:@"player-bravo"
+                                                                        sequenceNumber:2
+                                                                             timestamp:60.0
+                                                                               payload:@{ @"finalRecord": remoteFinal,
+                                                                                          @"derivedOutcome": @(FGChallengeOutcomeLoss) }];
+    XCTAssertTrue([coordinator receiveRemotePacket:remoteVerification
+                              fromPlayerIdentifier:@"player-bravo"
+                                            atDate:[finishDate dateByAddingTimeInterval:3.1]]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateResults);
+    XCTAssertTrue(coordinator.isResultVerified);
+    XCTAssertEqual(coordinator.outcome, FGChallengeOutcomeWin);
+    XCTAssertEqualObjects(records.aggregateRecord[@"totalLiveRaces"], @1);
+}
+
+- (void)testFinalAndVerificationPacketsCanCrossTheFinishDeadline
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-crossed-final");
+    NSDate *finishDate = [contract.synchronizedStartDate dateByAddingTimeInterval:60.0];
+    NSDictionary *localFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0);
+    NSDictionary *remoteFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-bravo", 6, 4, NO, 0);
+
+    XCTAssertTrue([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract));
+    XCTAssertTrue([coordinator recordLocalCrashAtDate:finishDate]);
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, localFinal);
+    XCTAssertTrue([coordinator advanceToDate:[finishDate dateByAddingTimeInterval:3.0]]);
+    FGChallengePacket *lateFinal = [[FGChallengePacket alloc] initWithRaceIdentifier:contract.raceIdentifier
+                                                                     playerIdentifier:@"player-bravo"
+                                                                       sequenceNumber:1 timestamp:60.0
+                                                              progressCheckpoint:6 score:4 birdY:0.5 motionHint:0
+                                                                        alive:NO disconnected:NO finalRecord:remoteFinal];
+    XCTAssertTrue([coordinator receiveRemotePacket:lateFinal fromPlayerIdentifier:@"player-bravo"
+                                            atDate:[finishDate dateByAddingTimeInterval:3.1]]);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindVerification);
+}
+
+- (void)testSceneSnapshotPublishesOrderedNormalizedRaceState
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-scene-stream");
+    id<FGChallengeRaceSceneEventDelegate> eventSink = (id<FGChallengeRaceSceneEventDelegate>)coordinator;
+
+    XCTAssertTrue([coordinator activateNetworkSession]);
+    XCTAssertTrue(FGCoordinatorPrepareRace(coordinator, contract));
+    [eventSink challengeRaceScene:nil
+       didUpdateLocalSnapshotWithProgressCheckpoint:2
+                             score:1
+                       normalizedBirdY:0.75
+                            motionHint:-0.25
+                            elapsedTime:2.0
+                                  alive:YES];
+
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindRaceState);
+    XCTAssertEqual(transport.lastSentPacket.progressCheckpoint, 2u);
+    XCTAssertEqual(transport.lastSentPacket.score, 1);
+    XCTAssertEqualWithAccuracy(transport.lastSentPacket.birdY, 0.75, 0.0001);
+    XCTAssertEqualWithAccuracy(transport.lastSentPacket.motionHint, -0.25, 0.0001);
+    XCTAssertEqualWithAccuracy(transport.lastSentPacket.timestamp, 2.0, 0.0001);
+}
+
+- (void)testNetworkRematchRequiresBothPlayersAndNegotiatesFreshCanonicalContract
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-before-rematch");
+    NSDate *now = [NSDate dateWithTimeIntervalSince1970:1700000400];
+    NSDictionary *localFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0);
+    NSDictionary *remoteFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-bravo", 6, 4, NO, 0);
+
+    XCTAssertTrue([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract));
+    XCTAssertTrue([coordinator recordLocalCrashAtDate:now]);
+    XCTAssertTrue([coordinator advanceToDate:[now dateByAddingTimeInterval:3.0]]);
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, localFinal);
+    XCTAssertTrue([coordinator completeVerificationWithLocalFinalRecord:nil remoteFinalRecord:remoteFinal remoteDerivedOutcome:FGChallengeOutcomeLoss]);
+
+    XCTAssertTrue([coordinator requestNetworkRematchAtDate:now]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateResults);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindRematch);
+    FGChallengePacket *remoteRematch = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindRematch
+                                                                  raceIdentifier:contract.raceIdentifier
+                                                                playerIdentifier:@"player-bravo"
+                                                                  sequenceNumber:1
+                                                                       timestamp:0
+                                                                         payload:@{ @"ready": @YES }];
+    XCTAssertTrue([coordinator receiveRemotePacket:remoteRematch fromPlayerIdentifier:@"player-bravo" atDate:now]);
+    XCTAssertEqual(coordinator.state, FGChallengeCoordinatorStateReady);
+    XCTAssertEqual(transport.lastSentPacket.kind, FGChallengePacketKindContract);
+    XCTAssertNotEqualObjects(transport.lastSentPacket.payload[@"contract"][@"raceIdentifier"], contract.raceIdentifier);
+}
+
 @end
 
 #else
@@ -1021,6 +1257,250 @@ static void FGTestMutableRequiredFinalSnapshot(void)
               @"verification uses immutable required final values");
 }
 
+static void FGTestProductionReadyExchangeAndClockStart(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    NSDate *receiveDate = [NSDate dateWithTimeIntervalSince1970:1700000200];
+
+    FGRequire([coordinator activateNetworkSession] &&
+              [coordinator beginInvitation] &&
+              [coordinator beginLobbyWithPeerIdentifier:@"player-bravo"] &&
+              [coordinator updateLocalReady:YES],
+              @"production session sends local readiness from a connected lobby");
+    FGRequire(transport.lastSentPacket.kind == FGChallengePacketKindReady,
+              @"local readiness is carried by an ordered control packet");
+
+    FGChallengePacket *remoteReady = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindReady
+                                                                raceIdentifier:transport.lastSentPacket.raceIdentifier
+                                                              playerIdentifier:@"player-bravo"
+                                                                sequenceNumber:1
+                                                                     timestamp:0
+                                                                       payload:@{ @"ready": @YES }];
+    FGRequire([coordinator receiveRemotePacket:remoteReady fromPlayerIdentifier:@"player-bravo" atDate:receiveDate],
+              @"remote readiness reaches the coordinator");
+    FGRequire(transport.lastSentPacket.kind == FGChallengePacketKindContract,
+              @"deterministic host sends a canonical contract after both players are ready");
+    NSDictionary *contractRepresentation = transport.lastSentPacket.payload[@"contract"];
+    FGChallengePacket *acknowledgement = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindContractAcknowledgement
+                                                                    raceIdentifier:remoteReady.raceIdentifier
+                                                                  playerIdentifier:@"player-bravo"
+                                                                    sequenceNumber:2
+                                                                         timestamp:0
+                                                                           payload:@{}];
+    FGRequire([coordinator receiveRemotePacket:acknowledgement
+                          fromPlayerIdentifier:@"player-bravo"
+                                        atDate:[receiveDate dateByAddingTimeInterval:0.1]],
+              @"contract acknowledgement reaches the host");
+    FGRequire(coordinator.state == FGChallengeCoordinatorStateCountdown &&
+              [coordinator.activeContract usesCanonicalConfiguration] &&
+              [coordinator.activeContract.dictionaryRepresentation isEqual:contractRepresentation],
+              @"acknowledged canonical contract locks before countdown");
+    FGRequire([coordinator advanceToDate:coordinator.activeContract.synchronizedStartDate] &&
+              coordinator.state == FGChallengeCoordinatorStateRacing && transport.reconnectAllowed,
+              @"production clock starts the race and enables bounded reconnect handling");
+}
+
+static void FGTestRemoteReadyFirst(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGRequire([coordinator activateNetworkSession] && [coordinator beginInvitation] &&
+              [coordinator beginLobbyWithPeerIdentifier:@"player-bravo"], @"remote-first lobby starts");
+    FGChallengePacket *remoteReady = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindReady
+                                                                raceIdentifier:@"lobby:12:player-alpha12:player-bravo"
+                                                              playerIdentifier:@"player-bravo"
+                                                                sequenceNumber:1 timestamp:0 payload:@{ @"ready": @YES }];
+    FGRequire([coordinator receiveRemotePacket:remoteReady fromPlayerIdentifier:@"player-bravo" atDate:[NSDate date]] &&
+              [coordinator updateLocalReady:YES] && transport.lastSentPacket.kind == FGChallengePacketKindContract,
+              @"local contract authority proposes after becoming the second ready player");
+}
+
+static void FGTestReceivedRaceStateValidationAndReceiptDeadline(void)
+{
+    FGChallengeCoordinator *coordinator = FGCoordinator(NULL);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-packet-validation");
+    NSDate *start = contract.synchronizedStartDate;
+    FGChallengePacket *(^packet)(uint64_t, NSTimeInterval, NSUInteger, NSInteger, BOOL) =
+        ^FGChallengePacket *(uint64_t sequence, NSTimeInterval elapsed, NSUInteger progress, NSInteger score, BOOL alive) {
+            return [[FGChallengePacket alloc] initWithRaceIdentifier:contract.raceIdentifier
+                                                    playerIdentifier:@"player-bravo"
+                                                      sequenceNumber:sequence
+                                                           timestamp:elapsed
+                                                  progressCheckpoint:progress
+                                                               score:score
+                                                               birdY:0.5
+                                                          motionHint:0.0
+                                                               alive:alive
+                                                        disconnected:NO
+                                                         finalRecord:nil];
+        };
+
+    FGRequire(FGCoordinatorPrepareRace(coordinator, contract), @"packet-validation race is prepared");
+    FGRequire(![coordinator receiveRemotePacket:packet(1, 1.0, 42, 8, YES)
+                                  fromPlayerIdentifier:@"player-bravo"
+                                                atDate:[start dateByAddingTimeInterval:1.2]],
+              @"progress impossible for the deterministic elapsed course is rejected");
+    FGRequire(![coordinator receiveRemotePacket:packet(2, 1.0, 1, 2, YES)
+                                  fromPlayerIdentifier:@"player-bravo"
+                                                atDate:[start dateByAddingTimeInterval:1.2]],
+              @"score impossible for reported progress is rejected");
+    FGRequire(![coordinator receiveRemotePacket:packet(3, 10.0, 1, 1, YES)
+                                  fromPlayerIdentifier:@"player-bravo"
+                                                atDate:[start dateByAddingTimeInterval:1.2]],
+              @"peer timestamp ahead of local contract elapsed time is rejected");
+    FGRequire([coordinator receiveRemotePacket:packet(4, 1.0, 1, 1, YES)
+                                 fromPlayerIdentifier:@"player-bravo"
+                                               atDate:[start dateByAddingTimeInterval:1.2]],
+              @"course-compatible monotonic state is accepted");
+
+    NSDate *crashReceipt = [start dateByAddingTimeInterval:2.0];
+    FGRequire([coordinator receiveRemotePacket:packet(5, 1.1, 1, 1, NO)
+                                 fromPlayerIdentifier:@"player-bravo"
+                                               atDate:crashReceipt] &&
+              coordinator.state == FGChallengeCoordinatorStateFinishWindow,
+              @"accepted remote crash starts a local finish window");
+    FGRequire([coordinator advanceToDate:[crashReceipt dateByAddingTimeInterval:2.99]] &&
+              coordinator.state == FGChallengeCoordinatorStateFinishWindow,
+              @"peer timestamp cannot shorten the locally observed finish window");
+    FGRequire([coordinator advanceToDate:[crashReceipt dateByAddingTimeInterval:3.0]] &&
+              coordinator.state == FGChallengeCoordinatorStateVerifying,
+              @"local receipt deadline expires after canonical three seconds");
+}
+
+static void FGTestProductionFinalExchangeAndRecording(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeRecordStore *records;
+    FGChallengeCoordinator *coordinator = FGCoordinatorWithRecordStore(&transport, &records);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-network-final");
+    NSDate *finishDate = [contract.synchronizedStartDate dateByAddingTimeInterval:60.0];
+    NSDictionary *localFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0);
+    NSDictionary *remoteFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-bravo", 6, 4, NO, 0);
+
+    FGRequire([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract),
+              @"network final-exchange race starts");
+    FGRequire([coordinator recordLocalCrashAtDate:finishDate], @"local crash starts the finish window");
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, localFinal);
+    FGRequire(transport.lastSentPacket.kind == FGChallengePacketKindRaceState &&
+              [transport.lastSentPacket.finalRecord isEqual:localFinal],
+              @"accepted local final facts are sent as ordered state");
+
+    FGChallengePacket *remoteFinalPacket = [[FGChallengePacket alloc] initWithRaceIdentifier:contract.raceIdentifier
+                                                                            playerIdentifier:@"player-bravo"
+                                                                              sequenceNumber:1
+                                                                                   timestamp:60.0
+                                                                          progressCheckpoint:6
+                                                                                       score:4
+                                                                                       birdY:0.5
+                                                                                  motionHint:0.0
+                                                                                       alive:NO
+                                                                                disconnected:NO
+                                                                                 finalRecord:remoteFinal];
+    FGRequire([coordinator receiveRemotePacket:remoteFinalPacket
+                          fromPlayerIdentifier:@"player-bravo"
+                                        atDate:[finishDate dateByAddingTimeInterval:0.1]],
+              @"validated remote final facts enter the coordinator");
+    FGRequire([coordinator advanceToDate:[finishDate dateByAddingTimeInterval:3.0]] &&
+              transport.lastSentPacket.kind == FGChallengePacketKindVerification &&
+              [transport.lastSentPacket.payload[@"derivedOutcome"] integerValue] == FGChallengeOutcomeWin,
+              @"finish deadline sends the locally derived canonical outcome");
+
+    FGChallengePacket *remoteVerification = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindVerification
+                                                                        raceIdentifier:contract.raceIdentifier
+                                                                      playerIdentifier:@"player-bravo"
+                                                                        sequenceNumber:2
+                                                                             timestamp:60.0
+                                                                               payload:@{ @"finalRecord": remoteFinal,
+                                                                                          @"derivedOutcome": @(FGChallengeOutcomeLoss) }];
+    FGRequire([coordinator receiveRemotePacket:remoteVerification
+                          fromPlayerIdentifier:@"player-bravo"
+                                        atDate:[finishDate dateByAddingTimeInterval:3.1]] &&
+              coordinator.state == FGChallengeCoordinatorStateResults &&
+              coordinator.isResultVerified && coordinator.outcome == FGChallengeOutcomeWin &&
+              [records.aggregateRecord[@"totalLiveRaces"] integerValue] == 1,
+              @"two independently agreeing outcomes record one verified result");
+}
+
+static void FGTestFinalCrossesFinishDeadline(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-crossed-final");
+    NSDate *finishDate = [contract.synchronizedStartDate dateByAddingTimeInterval:60.0];
+    NSDictionary *localFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0);
+    NSDictionary *remoteFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-bravo", 6, 4, NO, 0);
+    FGRequire([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract) &&
+              [coordinator recordLocalCrashAtDate:finishDate], @"deadline-crossing race starts");
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, localFinal);
+    FGRequire([coordinator advanceToDate:[finishDate dateByAddingTimeInterval:3.0]],
+              @"deadline-crossing race reaches verification");
+    FGChallengePacket *lateFinal = [[FGChallengePacket alloc] initWithRaceIdentifier:contract.raceIdentifier
+                                                                     playerIdentifier:@"player-bravo"
+                                                                       sequenceNumber:1 timestamp:60.0
+                                                              progressCheckpoint:6 score:4 birdY:0.5 motionHint:0
+                                                                        alive:NO disconnected:NO finalRecord:remoteFinal];
+    FGRequire([coordinator receiveRemotePacket:lateFinal fromPlayerIdentifier:@"player-bravo"
+                                        atDate:[finishDate dateByAddingTimeInterval:3.1]] &&
+              transport.lastSentPacket.kind == FGChallengePacketKindVerification,
+              @"reliable remote final crossing the local deadline is still verified");
+}
+
+static void FGTestSceneSnapshotPublishesState(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-scene-stream");
+    id<FGChallengeRaceSceneEventDelegate> eventSink = (id<FGChallengeRaceSceneEventDelegate>)coordinator;
+
+    FGRequire([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract),
+              @"network scene-stream race starts");
+    [eventSink challengeRaceScene:nil
+       didUpdateLocalSnapshotWithProgressCheckpoint:2
+                             score:1
+                       normalizedBirdY:0.75
+                            motionHint:-0.25
+                            elapsedTime:2.0
+                                  alive:YES];
+    FGRequire(transport.lastSentPacket.kind == FGChallengePacketKindRaceState &&
+              transport.lastSentPacket.progressCheckpoint == 2 && transport.lastSentPacket.score == 1 &&
+              fabs(transport.lastSentPacket.birdY - 0.75) < 0.0001 &&
+              fabs(transport.lastSentPacket.motionHint + 0.25) < 0.0001 &&
+              fabs(transport.lastSentPacket.timestamp - 2.0) < 0.0001,
+              @"scene snapshots publish ordered normalized race state");
+}
+
+static void FGTestNetworkRematchNegotiation(void)
+{
+    FGChallengeCoordinatorFakeTransport *transport;
+    FGChallengeCoordinator *coordinator = FGCoordinator(&transport);
+    FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-before-rematch");
+    NSDate *now = [NSDate dateWithTimeIntervalSince1970:1700000400];
+    NSDictionary *localFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-alpha", 7, 5, NO, 0);
+    NSDictionary *remoteFinal = FGCoordinatorFinalRecord(contract.raceIdentifier, @"player-bravo", 6, 4, NO, 0);
+
+    FGRequire([coordinator activateNetworkSession] && FGCoordinatorPrepareRace(coordinator, contract) &&
+              [coordinator recordLocalCrashAtDate:now] &&
+              [coordinator advanceToDate:[now dateByAddingTimeInterval:3.0]],
+              @"network rematch source race reaches verification");
+    FGCoordinatorSubmitSceneFinalRecord(coordinator, localFinal);
+    FGRequire([coordinator completeVerificationWithLocalFinalRecord:nil remoteFinalRecord:remoteFinal
+                                              remoteDerivedOutcome:FGChallengeOutcomeLoss],
+              @"network rematch source race has verified result");
+    FGRequire([coordinator requestNetworkRematchAtDate:now] && coordinator.state == FGChallengeCoordinatorStateResults &&
+              transport.lastSentPacket.kind == FGChallengePacketKindRematch,
+              @"one rematch request waits for the peer without changing result authority");
+    FGChallengePacket *remoteRematch = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindRematch
+                                                                  raceIdentifier:contract.raceIdentifier
+                                                                playerIdentifier:@"player-bravo"
+                                                                  sequenceNumber:1 timestamp:0 payload:@{ @"ready": @YES }];
+    FGRequire([coordinator receiveRemotePacket:remoteRematch fromPlayerIdentifier:@"player-bravo" atDate:now] &&
+              coordinator.state == FGChallengeCoordinatorStateReady &&
+              transport.lastSentPacket.kind == FGChallengePacketKindContract &&
+              ![transport.lastSentPacket.payload[@"contract"][@"raceIdentifier"] isEqual:contract.raceIdentifier],
+              @"two rematch requests negotiate a fresh canonical contract");
+}
+
 typedef void (*FGCoordinatorTestFunction)(void);
 
 typedef struct {
@@ -1058,6 +1538,13 @@ int main(int argc, const char *argv[])
             { "verifier-local-input", FGTestVerifierLocalInputSnapshot },
             { "verifier-remote-input", FGTestVerifierRemoteInputSnapshot },
             { "mutable-required-final", FGTestMutableRequiredFinalSnapshot },
+            { "production-ready-clock", FGTestProductionReadyExchangeAndClockStart },
+            { "remote-ready-first", FGTestRemoteReadyFirst },
+            { "received-state-validation", FGTestReceivedRaceStateValidationAndReceiptDeadline },
+            { "production-final-exchange", FGTestProductionFinalExchangeAndRecording },
+            { "final-crosses-deadline", FGTestFinalCrossesFinishDeadline },
+            { "scene-state-stream", FGTestSceneSnapshotPublishesState },
+            { "network-rematch", FGTestNetworkRematchNegotiation },
         };
         BOOL matched = argc == 1;
         NSUInteger index;

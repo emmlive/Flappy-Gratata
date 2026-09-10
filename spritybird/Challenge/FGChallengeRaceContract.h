@@ -11,6 +11,12 @@ FOUNDATION_EXPORT NSString * const FGChallengeRaceContractMismatchReasonSynchron
 FOUNDATION_EXPORT NSString * const FGChallengeRaceContractMismatchReasonFinishWindow;
 FOUNDATION_EXPORT NSString * const FGChallengeRaceContractMismatchReasonReconnectGrace;
 FOUNDATION_EXPORT NSString * const FGChallengeRaceContractMismatchReasonCompatibilityFingerprint;
+FOUNDATION_EXPORT NSString * const FGChallengeRaceContractErrorDomain;
+
+typedef NS_ENUM(NSInteger, FGChallengeRaceContractErrorCode) {
+    FGChallengeRaceContractErrorMalformedRepresentation = 1,
+    FGChallengeRaceContractErrorNoncanonicalConfiguration = 2,
+};
 
 @interface FGChallengeRaceContract : NSObject
 
@@ -38,6 +44,16 @@ FOUNDATION_EXPORT NSString * const FGChallengeRaceContractMismatchReasonCompatib
              compatibilityFingerprint:(NSString *)compatibilityFingerprint NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
+
++ (instancetype)canonicalContractWithRaceIdentifier:(NSString *)raceIdentifier
+                                                seed:(uint64_t)seed
+                               firstPlayerIdentifier:(NSString *)firstPlayerIdentifier
+                              secondPlayerIdentifier:(NSString *)secondPlayerIdentifier
+                                synchronizedStartDate:(NSDate *)synchronizedStartDate;
++ (instancetype)contractFromDictionary:(NSDictionary<NSString *, id> *)dictionary
+                                  error:(NSError * __autoreleasing *)error;
+
+- (BOOL)usesCanonicalConfiguration;
 
 - (BOOL)isCompatibleWithContract:(FGChallengeRaceContract *)otherContract
                           reason:(NSString * __autoreleasing *)reason;

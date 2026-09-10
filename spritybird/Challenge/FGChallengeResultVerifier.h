@@ -15,6 +15,10 @@ FOUNDATION_EXPORT NSString * const FGChallengeResultVerificationReasonReconnectP
 @property (nonatomic, assign, readonly, getter=isVerified) BOOL verified;
 @property (nonatomic, copy, readonly) NSString *reason;
 
++ (instancetype)resultWithLocalOutcome:(FGChallengeOutcome)localOutcome
+                              verified:(BOOL)verified
+                                reason:(NSString *)reason;
+
 @end
 
 @interface FGChallengeResultVerifier : NSObject

@@ -20,7 +20,8 @@ NSString * const FGChallengeTransportErrorDomain = @"com.flappygratata.challenge
 @property (nonatomic, weak) UIViewController *authenticationPresenter;
 #if FGCHALLENGE_HAS_GAMEKIT
 @property (nonatomic, strong) GKMatch *match;
-@property (nonatomic, strong) GKMatchmakerViewController *matchmakerViewController;
+@property (nonatomic, assign) BOOL announcedInvitationAcceptance;
+@property (nonatomic, strong) NSMutableSet<NSString *> *announcedPlayerIdentifiers;
 #endif
 
 @end
@@ -33,6 +34,7 @@ NSString * const FGChallengeTransportErrorDomain = @"com.flappygratata.challenge
     if (self) {
 #if FGCHALLENGE_HAS_GAMEKIT
         _available = YES;
+        _announcedPlayerIdentifiers = [NSMutableSet set];
         [[GKLocalPlayer localPlayer] registerListener:(id<GKLocalPlayerListener>)self];
 #else
         _available = NO;
@@ -78,6 +80,11 @@ NSString * const FGChallengeTransportErrorDomain = @"com.flappygratata.challenge
 #endif
 }
 
+- (void)setPresentationViewController:(UIViewController *)viewController
+{
+    self.authenticationPresenter = viewController;
+}
+
 - (void)beginFriendInvitationFromViewController:(UIViewController *)viewController
 {
 #if FGCHALLENGE_HAS_GAMEKIT
@@ -86,13 +93,36 @@ NSString * const FGChallengeTransportErrorDomain = @"com.flappygratata.challenge
         [self notifyFailure:[self errorWithCode:FGChallengeTransportErrorUnavailable]];
         return;
     }
-    GKMatchRequest *request = [[GKMatchRequest alloc] init];
-    request.minPlayers = 2;
-    request.maxPlayers = 2;
-    GKMatchmakerViewController *matchmaker = [[GKMatchmakerViewController alloc] initWithMatchRequest:request];
-    matchmaker.matchmakerDelegate = (id<GKMatchmakerViewControllerDelegate>)self;
-    self.matchmakerViewController = matchmaker;
-    [viewController presentViewController:matchmaker animated:YES completion:nil];
+    __weak typeof(self) weakSelf = self;
+    [[GKLocalPlayer localPlayer] loadFriendsWithCompletionHandler:^(NSArray<GKPlayer *> *friends, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            FGChallengeTransport *strongSelf = weakSelf;
+            if (strongSelf == nil) {
+                return;
+            }
+            if (error != nil || friends.count == 0) {
+                [strongSelf handleInvitationDeclined];
+                [strongSelf notifyFailure:error ?: [strongSelf errorWithCode:FGChallengeTransportErrorUnavailable]];
+                return;
+            }
+            UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Invite a Game Center Friend"
+                                                                             message:@"Only the friend you choose can join this race."
+                                                                      preferredStyle:UIAlertControllerStyleActionSheet];
+            for (GKPlayer *friend in friends) {
+                NSString *title = friend.displayName.length > 0 ? friend.displayName : @"Game Center Friend";
+                [picker addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+                    [strongSelf findFriendsOnlyMatchWithPlayer:friend];
+                }]];
+            }
+            [picker addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
+                [strongSelf handleInvitationDeclined];
+            }]];
+            UIPopoverPresentationController *popover = picker.popoverPresentationController;
+            popover.sourceView = viewController.view;
+            popover.sourceRect = CGRectMake(CGRectGetMidX(viewController.view.bounds), CGRectGetMidY(viewController.view.bounds), 1.0, 1.0);
+            [viewController presentViewController:picker animated:YES completion:nil];
+        });
+    }];
 #else
     (void)viewController;
     [self notifyFailure:[self errorWithCode:FGChallengeTransportErrorUnavailable]];
@@ -166,6 +196,8 @@ toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
 #if FGCHALLENGE_HAS_GAMEKIT
     self.match.delegate = nil;
     self.match = nil;
+    self.announcedInvitationAcceptance = NO;
+    [self.announcedPlayerIdentifiers removeAllObjects];
 #endif
 }
 
@@ -199,7 +231,6 @@ toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
 
 - (void)handleMatchConnectedWithPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
 {
-    [self handleInvitationAccepted];
     for (NSString *playerIdentifier in playerIdentifiers) {
         if (![playerIdentifier isKindOfClass:[NSString class]] || playerIdentifier.length == 0) {
             continue;
@@ -249,6 +280,91 @@ toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
 }
 
 #if FGCHALLENGE_HAS_GAMEKIT
+- (void)findFriendsOnlyMatchWithPlayer:(GKPlayer *)player
+{
+    if (player == nil) {
+        [self notifyFailure:[self errorWithCode:FGChallengeTransportErrorUnavailable]];
+        return;
+    }
+    GKMatchRequest *request = [[GKMatchRequest alloc] init];
+    request.minPlayers = 2;
+    request.maxPlayers = 2;
+    request.recipients = @[ player ];
+    __weak typeof(self) weakSelf = self;
+    [[GKMatchmaker sharedMatchmaker] findMatchForRequest:request withCompletionHandler:^(GKMatch *match, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            FGChallengeTransport *strongSelf = weakSelf;
+            if (strongSelf == nil) {
+                return;
+            }
+            if (match == nil || error != nil) {
+                [strongSelf handleInvitationDeclined];
+                [strongSelf notifyFailure:error ?: [strongSelf errorWithCode:FGChallengeTransportErrorUnavailable]];
+                return;
+            }
+            [strongSelf configureMatch:match announceInvitation:YES];
+        });
+    }];
+}
+
+- (void)configureMatch:(GKMatch *)match announceInvitation:(BOOL)announceInvitation
+{
+    if (match == nil) {
+        return;
+    }
+    self.match.delegate = nil;
+    self.match = match;
+    self.match.delegate = (id<GKMatchDelegate>)self;
+    [self.announcedPlayerIdentifiers removeAllObjects];
+    if (announceInvitation && !self.announcedInvitationAcceptance) {
+        self.announcedInvitationAcceptance = YES;
+        [self handleInvitationAccepted];
+    }
+    [self announceConnectedPlayersForMatch:match remainingAttempts:20];
+}
+
+- (void)announceConnectedPlayersForMatch:(GKMatch *)match remainingAttempts:(NSUInteger)remainingAttempts
+{
+    if (match != self.match) {
+        return;
+    }
+    NSMutableArray<NSString *> *identifiers = [NSMutableArray array];
+    BOOL hasUnresolvedPlayer = NO;
+    for (GKPlayer *player in match.players) {
+        if (player.gamePlayerID.length > 0) {
+            if (![self.announcedPlayerIdentifiers containsObject:player.gamePlayerID]) {
+                [identifiers addObject:player.gamePlayerID];
+                [self.announcedPlayerIdentifiers addObject:player.gamePlayerID];
+            }
+        } else {
+            hasUnresolvedPlayer = YES;
+        }
+    }
+    if (identifiers.count > 0) {
+        [self handleMatchConnectedWithPlayerIdentifiers:identifiers];
+    }
+    if (hasUnresolvedPlayer && remainingAttempts > 0) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [weakSelf announceConnectedPlayersForMatch:match remainingAttempts:remainingAttempts - 1];
+        });
+    }
+}
+
+- (void)resolveIdentifierForPlayer:(GKPlayer *)player
+                  remainingAttempts:(NSUInteger)remainingAttempts
+                         completion:(void (^)(NSString *identifier))completion
+{
+    NSString *identifier = player.gamePlayerID;
+    if (identifier.length > 0 || remainingAttempts == 0) {
+        completion(identifier);
+        return;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self resolveIdentifierForPlayer:player remainingAttempts:remainingAttempts - 1 completion:completion];
+    });
+}
+
 - (NSArray<GKPlayer *> *)recipientsMatchingIdentifiers:(NSArray<NSString *> *)playerIdentifiers
 {
     NSMutableArray<GKPlayer *> *recipients = [NSMutableArray array];
@@ -260,46 +376,32 @@ toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
     return recipients;
 }
 
-- (void)matchmakerViewControllerWasCancelled:(GKMatchmakerViewController *)viewController
-{
-    [viewController dismissViewControllerAnimated:YES completion:nil];
-    self.matchmakerViewController = nil;
-    [self handleInvitationDeclined];
-}
-
-- (void)matchmakerViewController:(GKMatchmakerViewController *)viewController didFailWithError:(NSError *)error
-{
-    [viewController dismissViewControllerAnimated:YES completion:nil];
-    self.matchmakerViewController = nil;
-    [self notifyFailure:error];
-}
-
-- (void)matchmakerViewController:(GKMatchmakerViewController *)viewController didFindMatch:(GKMatch *)match
-{
-    [viewController dismissViewControllerAnimated:YES completion:nil];
-    self.matchmakerViewController = nil;
-    self.match = match;
-    self.match.delegate = (id<GKMatchDelegate>)self;
-    NSMutableArray<NSString *> *identifiers = [NSMutableArray array];
-    for (GKPlayer *player in match.players) {
-        if (player.gamePlayerID.length > 0) {
-            [identifiers addObject:player.gamePlayerID];
-        }
-    }
-    [self handleMatchConnectedWithPlayerIdentifiers:identifiers];
-}
-
 - (void)match:(GKMatch *)match didReceiveData:(NSData *)data fromRemotePlayer:(GKPlayer *)player
 {
     (void)match;
-    [self handleIncomingPacketData:data fromPlayerIdentifier:player.gamePlayerID];
+    [self resolveIdentifierForPlayer:player remainingAttempts:20 completion:^(NSString *identifier) {
+        if (identifier.length > 0) {
+            [self handleIncomingPacketData:data fromPlayerIdentifier:identifier];
+        } else {
+            [self notifyFailure:[self errorWithCode:FGChallengeTransportErrorMalformedPacket]];
+        }
+    }];
 }
 
 - (void)match:(GKMatch *)match player:(GKPlayer *)player didChangeConnectionState:(GKPlayerConnectionState)state
 {
     (void)match;
-    [self handlePeerWithIdentifier:player.gamePlayerID
-                   connectionState:(state == GKPlayerStateConnected ? FGChallengeTransportPeerStateConnected : FGChallengeTransportPeerStateDisconnected)];
+    [self resolveIdentifierForPlayer:player remainingAttempts:20 completion:^(NSString *identifier) {
+        [self handlePeerWithIdentifier:identifier
+                       connectionState:(state == GKPlayerStateConnected ? FGChallengeTransportPeerStateConnected : FGChallengeTransportPeerStateDisconnected)];
+    }];
+}
+
+- (BOOL)match:(GKMatch *)match shouldReinviteDisconnectedPlayer:(GKPlayer *)player
+{
+    (void)match;
+    (void)player;
+    return self.reconnectAllowed;
 }
 
 - (void)match:(GKMatch *)match didFailWithError:(NSError *)error
@@ -311,16 +413,24 @@ toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
 - (void)player:(GKPlayer *)player didAcceptInvite:(GKInvite *)invite
 {
     (void)player;
-    [self handleInvitationAccepted];
-    UIViewController *presenter = self.authenticationPresenter;
-    if (presenter == nil) {
-        [self notifyFailure:[self errorWithCode:FGChallengeTransportErrorUnavailable]];
-        return;
+    if (!self.announcedInvitationAcceptance) {
+        self.announcedInvitationAcceptance = YES;
+        [self handleInvitationAccepted];
     }
-    GKMatchmakerViewController *matchmaker = [[GKMatchmakerViewController alloc] initWithInvite:invite];
-    matchmaker.matchmakerDelegate = (id<GKMatchmakerViewControllerDelegate>)self;
-    self.matchmakerViewController = matchmaker;
-    [presenter presentViewController:matchmaker animated:YES completion:nil];
+    __weak typeof(self) weakSelf = self;
+    [[GKMatchmaker sharedMatchmaker] matchForInvite:invite completionHandler:^(GKMatch *match, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            FGChallengeTransport *strongSelf = weakSelf;
+            if (strongSelf == nil) {
+                return;
+            }
+            if (match == nil || error != nil) {
+                [strongSelf notifyFailure:error ?: [strongSelf errorWithCode:FGChallengeTransportErrorUnavailable]];
+                return;
+            }
+            [strongSelf configureMatch:match announceInvitation:NO];
+        });
+    }];
 }
 #endif
 

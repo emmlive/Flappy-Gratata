@@ -17,7 +17,7 @@
 #import "../../Challenge/FGChallengeResultVerifier.h"
 #import "../../Challenge/FGChallengeTransport.h"
 
-@interface ViewController ()
+@interface ViewController () <FGChallengeTransportDelegate>
 @property (strong, nonatomic) SKView *gameView;
 @property (strong, nonatomic) UIView *getReadyView;
 
@@ -34,6 +34,10 @@
 @property (nonatomic, assign) BOOL shouldPresentGameCenterAfterAuthentication;
 @property (nonatomic, assign) BOOL hasPendingGameCenterScore;
 @property (nonatomic, assign) int64_t pendingGameCenterScore;
+@property (nonatomic, strong) FGChallengeTransport *challengeTransport;
+@property (nonatomic, strong) FGChallengeCoordinator *challengeCoordinator;
+@property (nonatomic, weak) FGChallengeLobbyViewController *challengeLobby;
+@property (nonatomic, assign) BOOL pendingChallengePresentation;
 @end
 
 @implementation ViewController
@@ -505,6 +509,9 @@
     self.gameOverView.alpha = 0;
     self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
     self.gameOverView.userInteractionEnabled = YES;
+    self.challengeTransport = [[FGChallengeTransport alloc] init];
+    [self.challengeTransport setPresentationViewController:self];
+    self.challengeTransport.delegate = self;
 }
 - (void)viewDidLayoutSubviews
 {
@@ -523,6 +530,10 @@
 
 -(void)viewWillAppear:(BOOL)animated{
     [super viewWillAppear:animated];
+    [self.challengeTransport setPresentationViewController:self];
+    if (self.presentedViewController == nil) {
+        self.challengeTransport.delegate = self;
+    }
     [self authenticateGameCenterPlayer];
 }
 
@@ -629,33 +640,103 @@
 
     GKLocalPlayer *localPlayer = [GKLocalPlayer localPlayer];
     if (!localPlayer.isAuthenticated || localPlayer.gamePlayerID.length == 0) {
+        self.pendingChallengePresentation = YES;
         [self authenticateGameCenterPlayer];
         return;
     }
+    [self.challengeTransport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID error:nil];
+    [self presentChallengeLobbyForIncomingInvitation:NO];
+}
 
-    FGChallengeTransport *transport = [[FGChallengeTransport alloc] init];
-    [transport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID
-                                                   error:nil];
-
-    FGChallengeCoordinator *coordinator =
-        [[FGChallengeCoordinator alloc]
-            initWithTransport:transport
-            resultVerifier:[[FGChallengeResultVerifier alloc] init]
-            recordStore:[[FGChallengeRecordStore alloc] init]
-            localPlayerIdentifier:transport.localPlayerIdentifier];
+- (void)presentChallengeLobbyForIncomingInvitation:(BOOL)incomingInvitation
+{
+    if (self.presentedViewController != nil || !self.challengeTransport.isAuthenticated ||
+        self.challengeTransport.localPlayerIdentifier.length == 0) {
+        return;
+    }
+    FGChallengeCoordinator *coordinator = [[FGChallengeCoordinator alloc]
+        initWithTransport:self.challengeTransport
+        resultVerifier:[[FGChallengeResultVerifier alloc] init]
+        recordStore:[[FGChallengeRecordStore alloc] init]
+        localPlayerIdentifier:self.challengeTransport.localPlayerIdentifier];
+    self.challengeCoordinator = coordinator;
+    self.challengeTransport.delegate = self;
+    if (incomingInvitation) {
+        [coordinator beginInvitation];
+    }
     FGChallengeLobbyViewController *lobby =
         [[FGChallengeLobbyViewController alloc]
             initWithCoordinator:coordinator
-            transport:transport];
+            transport:self.challengeTransport];
 
     if (lobby == nil) {
         return;
     }
-
+    self.challengeLobby = lobby;
     lobby.modalPresentationStyle = UIModalPresentationFullScreen;
     [self presentViewController:lobby
                        animated:YES
                      completion:nil];
+}
+
+- (void)showChallengeGameCenterUnavailable
+{
+    if (self.presentedViewController != nil) {
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Game Center unavailable"
+                                                                   message:@"Challenge Friend requires an available, signed-in Game Center account."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark - Live Challenge transport
+
+- (void)challengeTransportDidAcceptInvitation:(FGChallengeTransport *)transport
+{
+    (void)transport;
+    if (self.challengeLobby == nil && self.presentedViewController == nil) {
+        [self presentChallengeLobbyForIncomingInvitation:YES];
+    }
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport didConnectPlayerWithIdentifier:(NSString *)playerIdentifier
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
+                                                    didConnectPlayerWithIdentifier:playerIdentifier];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+didChangePeerWithIdentifier:(NSString *)playerIdentifier
+                      state:(FGChallengeTransportPeerState)state
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
+                                               didChangePeerWithIdentifier:playerIdentifier
+                                                                     state:state];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+           didReceivePacket:(FGChallengePacket *)packet
+        fromPlayerIdentifier:(NSString *)playerIdentifier
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
+                                                                    didReceivePacket:packet
+                                                                 fromPlayerIdentifier:playerIdentifier];
+}
+
+- (void)challengeTransportDidBecomeUnavailable:(FGChallengeTransport *)transport error:(NSError *)error
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransportDidBecomeUnavailable:transport error:error];
+    if (self.pendingChallengePresentation) {
+        self.pendingChallengePresentation = NO;
+        [self showChallengeGameCenterUnavailable];
+    }
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport didFailWithError:(NSError *)error
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport didFailWithError:error];
 }
 
 - (void)hangarFunc:(id)sender
@@ -707,12 +788,24 @@
             if (error != nil) {
                 NSLog(@"Game Center authentication error: %@",
                       error.localizedDescription);
+                [self.challengeTransport handleAuthenticationWithPlayerIdentifier:nil error:error];
+                if (self.pendingChallengePresentation) {
+                    self.pendingChallengePresentation = NO;
+                    [self showChallengeGameCenterUnavailable];
+                }
                 return;
             }
 
             if (!localPlayer.isAuthenticated) {
+                [self.challengeTransport handleAuthenticationWithPlayerIdentifier:nil error:nil];
+                if (self.pendingChallengePresentation) {
+                    self.pendingChallengePresentation = NO;
+                    [self showChallengeGameCenterUnavailable];
+                }
                 return;
             }
+
+            [self.challengeTransport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID error:nil];
 
             if (self.hasPendingGameCenterScore) {
                 int64_t pendingScore = self.pendingGameCenterScore;
@@ -724,6 +817,10 @@
             if (self.shouldPresentGameCenterAfterAuthentication) {
                 self.shouldPresentGameCenterAfterAuthentication = NO;
                 [self presentGameCenterLeaderboard];
+            }
+            if (self.pendingChallengePresentation) {
+                self.pendingChallengePresentation = NO;
+                [self presentChallengeLobbyForIncomingInvitation:NO];
             }
         });
     };
@@ -806,4 +903,3 @@
 }
 
 @end
-

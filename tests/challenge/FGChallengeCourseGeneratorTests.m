@@ -14,6 +14,7 @@
 #endif
 
 #import "../../spritybird/Challenge/FGChallengeCourseGenerator.h"
+#import <math.h>
 
 static NSData *FGChallengeCanonicalSequenceData(NSArray<FGChallengeObstacleDescriptor *> *descriptors)
 {
@@ -89,6 +90,30 @@ static void FGChallengeRequireValidSequence(NSArray<FGChallengeObstacleDescripto
     XCTAssertNil([[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:@"course-v2"]);
 }
 
+- (void)testIndexedGenerationMatchesTheSameInfiniteCourse
+{
+    FGChallengeCourseGenerator *generator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:FGChallengeCourseGenerationVersion1];
+    NSArray *wholeCourse = [generator obstaclesForSeed:71234 count:8];
+    NSArray *window = [generator obstaclesForSeed:71234 startIndex:5 count:3];
+
+    XCTAssertEqualObjects(FGChallengeCanonicalSequenceData(window),
+                          FGChallengeCanonicalSequenceData([wholeCourse subarrayWithRange:NSMakeRange(5, 3)]));
+    XCTAssertEqual(((FGChallengeObstacleDescriptor *)window.firstObject).index, 5u);
+}
+
+- (void)testElapsedCourseProgressIsFrameRateAndViewportIndependent
+{
+    FGChallengeCourseGenerator *generator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:FGChallengeCourseGenerationVersion1];
+    NSTimeInterval firstPassTime = (NSTimeInterval)FGChallengeCourseFirstObstaclePadding / FGChallengeCourseSpeedPointsPerSecond;
+    NSTimeInterval secondPassTime = (NSTimeInterval)(FGChallengeCourseFirstObstaclePadding + FGChallengeCourseObstacleInterval) /
+        FGChallengeCourseSpeedPointsPerSecond;
+
+    XCTAssertEqual([generator maximumReachableProgressAtElapsedTime:firstPassTime - 0.0001], 0u);
+    XCTAssertEqual([generator maximumReachableProgressAtElapsedTime:firstPassTime], 1u);
+    XCTAssertEqual([generator maximumReachableProgressAtElapsedTime:secondPassTime], 2u);
+    XCTAssertEqualWithAccuracy([generator horizontalOffsetForObstacleIndex:2 elapsedTime:1.0], 180.0, 0.000001);
+}
+
 @end
 
 #else
@@ -98,24 +123,6 @@ static void FGRequire(BOOL condition, NSString *message)
     if (!condition) {
         fprintf(stderr, "FAIL: %s\n", message.UTF8String);
         exit(1);
-    }
-}
-
-static void FGRequireFallbackValidSequence(NSArray<FGChallengeObstacleDescriptor *> *descriptors)
-{
-    NSUInteger index;
-
-    for (index = 0; index < descriptors.count; index += 1) {
-        FGChallengeObstacleDescriptor *descriptor = descriptors[index];
-        FGRequire(descriptor.index == index, @"descriptors preserve their sequence index");
-        FGRequire(descriptor.horizontalOffset == FGChallengeCourseFirstObstaclePadding + (NSInteger)index * FGChallengeCourseObstacleInterval,
-                  @"descriptors preserve the fixed Challenge interval");
-        FGRequire(descriptor.bottomObstacleHeight >= FGChallengeCourseMinimumObstacleHeight,
-                  @"bottom obstacle stays above the minimum height");
-        FGRequire(descriptor.bottomObstacleHeight <= FGChallengeCourseMaximumObstacleHeight,
-                  @"bottom obstacle stays within the Challenge bound");
-        FGRequire(descriptor.gapHeight == FGChallengeCourseGapHeight,
-                  @"Challenge gap remains fixed at the protected value");
     }
 }
 
@@ -138,8 +145,8 @@ static void FGTestDifferentSeedsProduceDifferentValidObstacleSequences(void)
 
     FGRequire(![FGChallengeCanonicalSequenceData(firstSequence) isEqual:FGChallengeCanonicalSequenceData(secondSequence)],
               @"different seeds produce different descriptor sequences");
-    FGRequireFallbackValidSequence(firstSequence);
-    FGRequireFallbackValidSequence(secondSequence);
+    FGChallengeRequireValidSequence(firstSequence);
+    FGChallengeRequireValidSequence(secondSequence);
 }
 
 static void FGTestGeneratorDoesNotReadMutableProcessGlobalRandomness(void)
@@ -165,6 +172,35 @@ static void FGTestUnknownCourseGenerationVersionFailsClosed(void)
               @"unknown course-generation version fails closed");
 }
 
+static void FGTestIndexedGenerationMatchesTheSameInfiniteCourse(void)
+{
+    FGChallengeCourseGenerator *generator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:FGChallengeCourseGenerationVersion1];
+    NSArray *wholeCourse = [generator obstaclesForSeed:71234 count:8];
+    NSArray *window = [generator obstaclesForSeed:71234 startIndex:5 count:3];
+
+    FGRequire([FGChallengeCanonicalSequenceData(window) isEqual:FGChallengeCanonicalSequenceData([wholeCourse subarrayWithRange:NSMakeRange(5, 3)])],
+              @"indexed generation returns the same descriptors as the infinite course");
+    FGRequire(((FGChallengeObstacleDescriptor *)window.firstObject).index == 5,
+              @"an indexed course window preserves absolute obstacle indexes");
+}
+
+static void FGTestElapsedCourseProgressIsFrameRateAndViewportIndependent(void)
+{
+    FGChallengeCourseGenerator *generator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:FGChallengeCourseGenerationVersion1];
+    NSTimeInterval firstPassTime = (NSTimeInterval)FGChallengeCourseFirstObstaclePadding / FGChallengeCourseSpeedPointsPerSecond;
+    NSTimeInterval secondPassTime = (NSTimeInterval)(FGChallengeCourseFirstObstaclePadding + FGChallengeCourseObstacleInterval) /
+        FGChallengeCourseSpeedPointsPerSecond;
+
+    FGRequire([generator maximumReachableProgressAtElapsedTime:firstPassTime - 0.0001] == 0,
+              @"no checkpoint is reachable before its contract-derived time");
+    FGRequire([generator maximumReachableProgressAtElapsedTime:firstPassTime] == 1,
+              @"the first checkpoint is reachable at its exact contract-derived time");
+    FGRequire([generator maximumReachableProgressAtElapsedTime:secondPassTime] == 2,
+              @"elapsed time deterministically advances checkpoints across skipped render frames");
+    FGRequire(fabs([generator horizontalOffsetForObstacleIndex:2 elapsedTime:1.0] - 180.0) < 0.000001,
+              @"obstacle position is an absolute elapsed-time function without viewport input");
+}
+
 int main(void)
 {
     @autoreleasepool {
@@ -172,6 +208,8 @@ int main(void)
         FGTestDifferentSeedsProduceDifferentValidObstacleSequences();
         FGTestGeneratorDoesNotReadMutableProcessGlobalRandomness();
         FGTestUnknownCourseGenerationVersionFailsClosed();
+        FGTestIndexedGenerationMatchesTheSameInfiniteCourse();
+        FGTestElapsedCourseProgressIsFrameRateAndViewportIndependent();
         puts("PASS: Live Challenge deterministic course generator");
     }
     return 0;

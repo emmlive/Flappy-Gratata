@@ -1,5 +1,6 @@
 #import "FGChallengeResultVerifier.h"
 
+#import "FGChallengeCourseGenerator.h"
 #import "FGChallengeRaceContract.h"
 
 #import <math.h>
@@ -18,6 +19,7 @@ static NSString * const FGChallengeFinalRecordScoreKey = @"score";
 static NSString * const FGChallengeFinalRecordCrashedKey = @"crashed";
 static NSString * const FGChallengeFinalRecordDisconnectedKey = @"disconnected";
 static NSString * const FGChallengeFinalRecordDisconnectDurationSecondsKey = @"disconnectDurationSeconds";
+static NSString * const FGChallengeFinalRecordElapsedTimeKey = @"elapsedTime";
 
 @interface FGChallengeVerifiedResult ()
 
@@ -32,6 +34,13 @@ static NSString * const FGChallengeFinalRecordDisconnectDurationSecondsKey = @"d
 @end
 
 @implementation FGChallengeVerifiedResult
+
++ (instancetype)resultWithLocalOutcome:(FGChallengeOutcome)localOutcome
+                              verified:(BOOL)verified
+                                reason:(NSString *)reason
+{
+    return [[self alloc] initWithLocalOutcome:localOutcome verified:verified reason:reason];
+}
 
 - (instancetype)initWithLocalOutcome:(FGChallengeOutcome)localOutcome
                              verified:(BOOL)verified
@@ -107,6 +116,8 @@ static NSString * const FGChallengeFinalRecordDisconnectDurationSecondsKey = @"d
     NSNumber *crashed;
     NSNumber *disconnected;
     NSNumber *disconnectDurationSeconds;
+    NSNumber *elapsedTime;
+    FGChallengeCourseGenerator *courseGenerator;
 
     if (![record isKindOfClass:[NSDictionary class]]) {
         return [self setReason:FGChallengeResultVerificationReasonMalformedRecord output:reason];
@@ -120,6 +131,7 @@ static NSString * const FGChallengeFinalRecordDisconnectDurationSecondsKey = @"d
     crashed = record[FGChallengeFinalRecordCrashedKey];
     disconnected = record[FGChallengeFinalRecordDisconnectedKey];
     disconnectDurationSeconds = record[FGChallengeFinalRecordDisconnectDurationSecondsKey];
+    elapsedTime = record[FGChallengeFinalRecordElapsedTimeKey];
 
     if (![self presentString:recordRaceIdentifier] ||
         ![self presentString:playerIdentifier] ||
@@ -128,7 +140,8 @@ static NSString * const FGChallengeFinalRecordDisconnectDurationSecondsKey = @"d
         ![self strictUnsignedIntegerNumber:score] ||
         ![self booleanNumber:crashed] ||
         ![self booleanNumber:disconnected] ||
-        ![self finiteNonnegativeNumber:disconnectDurationSeconds]) {
+        ![self finiteNonnegativeNumber:disconnectDurationSeconds] ||
+        ![self finiteNonnegativeNumber:elapsedTime]) {
         return [self setReason:FGChallengeResultVerificationReasonMalformedRecord output:reason];
     }
     if (![recordRaceIdentifier isEqualToString:contract.raceIdentifier] ||
@@ -137,6 +150,12 @@ static NSString * const FGChallengeFinalRecordDisconnectDurationSecondsKey = @"d
         return [self setReason:FGChallengeResultVerificationReasonContractMismatch output:reason];
     }
     if (score.unsignedLongLongValue > progressCheckpoint.unsignedLongLongValue) {
+        return [self setReason:FGChallengeResultVerificationReasonMalformedRecord output:reason];
+    }
+    courseGenerator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:contract.courseGenerationVersion];
+    if (courseGenerator == nil ||
+        progressCheckpoint.unsignedLongLongValue > [courseGenerator maximumReachableProgressAtElapsedTime:elapsedTime.doubleValue] ||
+        disconnectDurationSeconds.doubleValue > elapsedTime.doubleValue) {
         return [self setReason:FGChallengeResultVerificationReasonMalformedRecord output:reason];
     }
 

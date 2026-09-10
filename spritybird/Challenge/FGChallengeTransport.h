@@ -27,9 +27,11 @@ typedef NS_ENUM(NSInteger, FGChallengeTransportPeerState) {
 @property (nonatomic, readonly, getter=isAvailable) BOOL available;
 @property (nonatomic, readonly, getter=isAuthenticated) BOOL authenticated;
 @property (nonatomic, copy, readonly) NSString *localPlayerIdentifier;
+@property (nonatomic, assign) BOOL reconnectAllowed;
 
 - (void)authenticate;
 - (void)authenticateFromViewController:(UIViewController *)viewController;
+- (void)setPresentationViewController:(UIViewController *)viewController;
 - (void)beginFriendInvitationFromViewController:(UIViewController *)viewController;
 - (BOOL)sendPacket:(FGChallengePacket *)packet
 toPlayerIdentifiers:(NSArray<NSString *> *)playerIdentifiers
@@ -68,10 +70,12 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
 @property (nonatomic, readonly, getter=isAvailable) BOOL available;
 @property (nonatomic, readonly, getter=isAuthenticated) BOOL authenticated;
 @property (nonatomic, copy, readonly) NSString *localPlayerIdentifier;
+@property (nonatomic, assign) BOOL reconnectAllowed;
 
 - (instancetype)init;
 
 - (void)authenticateFromViewController:(UIViewController *)viewController;
+- (void)setPresentationViewController:(UIViewController *)viewController;
 
 // These adapter entry points keep GameKit callbacks contained here and give
 // non-GameKit fakes a deterministic way to drive the same contract in tests.

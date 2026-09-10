@@ -1,6 +1,9 @@
 #import "FGChallengeRaceContract.h"
 
+#import "FGChallengeRules.h"
+
 #import <math.h>
+#import <string.h>
 
 NSString * const FGChallengeRaceContractMismatchReasonMalformedContract = @"malformed-contract";
 NSString * const FGChallengeRaceContractMismatchReasonRaceIdentifier = @"race-identifier-mismatch";
@@ -13,6 +16,9 @@ NSString * const FGChallengeRaceContractMismatchReasonSynchronizedStart = @"sync
 NSString * const FGChallengeRaceContractMismatchReasonFinishWindow = @"finish-window-mismatch";
 NSString * const FGChallengeRaceContractMismatchReasonReconnectGrace = @"reconnect-grace-mismatch";
 NSString * const FGChallengeRaceContractMismatchReasonCompatibilityFingerprint = @"compatibility-fingerprint-mismatch";
+NSString * const FGChallengeRaceContractErrorDomain = @"com.flappygratata.challenge.race-contract";
+
+static NSString * const FGChallengeCanonicalCourseGenerationVersion = @"course-v1";
 
 @interface FGChallengeRaceContract ()
 
@@ -30,6 +36,87 @@ NSString * const FGChallengeRaceContractMismatchReasonCompatibilityFingerprint =
 @end
 
 @implementation FGChallengeRaceContract
+
++ (instancetype)canonicalContractWithRaceIdentifier:(NSString *)raceIdentifier
+                                                seed:(uint64_t)seed
+                               firstPlayerIdentifier:(NSString *)firstPlayerIdentifier
+                              secondPlayerIdentifier:(NSString *)secondPlayerIdentifier
+                                synchronizedStartDate:(NSDate *)synchronizedStartDate
+{
+    return [[self alloc] initWithRaceIdentifier:raceIdentifier
+                                          seed:seed
+                       courseGenerationVersion:FGChallengeCanonicalCourseGenerationVersion
+                        gameplayRulesetVersion:FGChallengeGameplayRulesetVersion
+                               protocolVersion:FGChallengeProtocolVersion
+                        firstPlayerIdentifier:firstPlayerIdentifier
+                       secondPlayerIdentifier:secondPlayerIdentifier
+                         synchronizedStartDate:synchronizedStartDate
+                          finishWindowSeconds:FGChallengeFinishWindowSeconds
+                      reconnectGraceSeconds:FGChallengeReconnectGraceSeconds
+                     compatibilityFingerprint:FGChallengeCompatibilityFingerprint()];
+}
+
++ (instancetype)contractFromDictionary:(NSDictionary<NSString *,id> *)dictionary
+                                  error:(NSError * __autoreleasing *)error
+{
+    NSSet<NSString *> *requiredKeys = [NSSet setWithArray:@[
+        @"raceIdentifier", @"seed", @"courseGenerationVersion", @"gameplayRulesetVersion",
+        @"protocolVersion", @"playerIdentifiers", @"synchronizedStartDate",
+        @"finishWindowSeconds", @"reconnectGraceSeconds", @"compatibilityFingerprint",
+    ]];
+    NSArray *players;
+    NSNumber *seed;
+    NSNumber *startTimestamp;
+    NSNumber *finishWindow;
+    NSNumber *reconnectGrace;
+    FGChallengeRaceContract *contract;
+
+    if (![dictionary isKindOfClass:[NSDictionary class]] || dictionary.count != requiredKeys.count ||
+        ![[NSSet setWithArray:dictionary.allKeys] isEqualToSet:requiredKeys]) {
+        return [self failWithCode:FGChallengeRaceContractErrorMalformedRepresentation error:error];
+    }
+    players = dictionary[@"playerIdentifiers"];
+    seed = dictionary[@"seed"];
+    startTimestamp = dictionary[@"synchronizedStartDate"];
+    finishWindow = dictionary[@"finishWindowSeconds"];
+    reconnectGrace = dictionary[@"reconnectGraceSeconds"];
+    if (![self stringIsPresent:dictionary[@"raceIdentifier"]] ||
+        ![self strictUnsignedIntegerNumber:seed] ||
+        ![self stringIsPresent:dictionary[@"courseGenerationVersion"]] ||
+        ![self stringIsPresent:dictionary[@"gameplayRulesetVersion"]] ||
+        ![self stringIsPresent:dictionary[@"protocolVersion"]] ||
+        ![players isKindOfClass:[NSArray class]] || players.count != 2 ||
+        ![self stringIsPresent:players[0]] || ![self stringIsPresent:players[1]] ||
+        ![players isEqualToArray:[players sortedArrayUsingSelector:@selector(compare:)]] ||
+        ![self finiteNumber:startTimestamp] ||
+        ![self finiteNumber:finishWindow] ||
+        ![self finiteNumber:reconnectGrace] ||
+        ![self stringIsPresent:dictionary[@"compatibilityFingerprint"]]) {
+        return [self failWithCode:FGChallengeRaceContractErrorMalformedRepresentation error:error];
+    }
+
+    contract = [[self alloc] initWithRaceIdentifier:dictionary[@"raceIdentifier"]
+                                              seed:seed.unsignedLongLongValue
+                           courseGenerationVersion:dictionary[@"courseGenerationVersion"]
+                            gameplayRulesetVersion:dictionary[@"gameplayRulesetVersion"]
+                                   protocolVersion:dictionary[@"protocolVersion"]
+                            firstPlayerIdentifier:players[0]
+                           secondPlayerIdentifier:players[1]
+                             synchronizedStartDate:[NSDate dateWithTimeIntervalSince1970:startTimestamp.doubleValue]
+                              finishWindowSeconds:finishWindow.doubleValue
+                          reconnectGraceSeconds:reconnectGrace.doubleValue
+                         compatibilityFingerprint:dictionary[@"compatibilityFingerprint"]];
+    if (contract == nil) {
+        return [self failWithCode:FGChallengeRaceContractErrorMalformedRepresentation error:error];
+    }
+    if (![contract usesCanonicalConfiguration]) {
+        return [self failWithCode:FGChallengeRaceContractErrorNoncanonicalConfiguration error:error];
+    }
+    if (error != NULL) {
+        *error = nil;
+    }
+    return contract;
+}
 
 - (instancetype)initWithRaceIdentifier:(NSString *)raceIdentifier
                                   seed:(uint64_t)seed
@@ -118,6 +205,16 @@ NSString * const FGChallengeRaceContractMismatchReasonCompatibilityFingerprint =
     return YES;
 }
 
+- (BOOL)usesCanonicalConfiguration
+{
+    return [self.courseGenerationVersion isEqualToString:FGChallengeCanonicalCourseGenerationVersion] &&
+           [self.gameplayRulesetVersion isEqualToString:FGChallengeGameplayRulesetVersion] &&
+           [self.protocolVersion isEqualToString:FGChallengeProtocolVersion] &&
+           self.finishWindowSeconds == FGChallengeFinishWindowSeconds &&
+           self.reconnectGraceSeconds == FGChallengeReconnectGraceSeconds &&
+           [self.compatibilityFingerprint isEqualToString:FGChallengeCompatibilityFingerprint()];
+}
+
 - (NSDictionary<NSString *,id> *)dictionaryRepresentation
 {
     return @{
@@ -137,6 +234,48 @@ NSString * const FGChallengeRaceContractMismatchReasonCompatibilityFingerprint =
 + (BOOL)stringIsPresent:(NSString *)string
 {
     return [string isKindOfClass:[NSString class]] && string.length > 0;
+}
+
++ (BOOL)booleanNumber:(id)value
+{
+    return [value isKindOfClass:[NSNumber class]] &&
+           CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID();
+}
+
++ (BOOL)strictIntegerNumber:(id)value
+{
+    const char *type;
+
+    if (![value isKindOfClass:[NSNumber class]] || [self booleanNumber:value]) {
+        return NO;
+    }
+    type = [(NSNumber *)value objCType];
+    return strcmp(type, @encode(char)) == 0 || strcmp(type, @encode(unsigned char)) == 0 ||
+           strcmp(type, @encode(short)) == 0 || strcmp(type, @encode(unsigned short)) == 0 ||
+           strcmp(type, @encode(int)) == 0 || strcmp(type, @encode(unsigned int)) == 0 ||
+           strcmp(type, @encode(long)) == 0 || strcmp(type, @encode(unsigned long)) == 0 ||
+           strcmp(type, @encode(long long)) == 0 || strcmp(type, @encode(unsigned long long)) == 0 ||
+           strcmp(type, @encode(NSInteger)) == 0 || strcmp(type, @encode(NSUInteger)) == 0;
+}
+
++ (BOOL)strictUnsignedIntegerNumber:(id)value
+{
+    return [self strictIntegerNumber:value] && [(NSNumber *)value longLongValue] >= 0;
+}
+
++ (BOOL)finiteNumber:(id)value
+{
+    return [value isKindOfClass:[NSNumber class]] && ![self booleanNumber:value] &&
+           isfinite([(NSNumber *)value doubleValue]);
+}
+
++ (instancetype)failWithCode:(FGChallengeRaceContractErrorCode)code
+                         error:(NSError * __autoreleasing *)error
+{
+    if (error != NULL) {
+        *error = [NSError errorWithDomain:FGChallengeRaceContractErrorDomain code:code userInfo:nil];
+    }
+    return nil;
 }
 
 - (BOOL)setReason:(NSString *)mismatchReason

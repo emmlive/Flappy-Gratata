@@ -91,6 +91,10 @@
     [self.rematchButton addTarget:self action:@selector(requestRematch:) forControlEvents:UIControlEventTouchUpInside];
     [content addArrangedSubview:self.rematchButton];
 
+    UIButton *rulesButton = [self actionButtonWithTitle:@"Rules" accent:NO];
+    [rulesButton addTarget:self action:@selector(showRules:) forControlEvents:UIControlEventTouchUpInside];
+    [content addArrangedSubview:rulesButton];
+
     UIButton *homeButton = [self actionButtonWithTitle:@"Back to Home" accent:NO];
     [homeButton addTarget:self action:@selector(backToHome:) forControlEvents:UIControlEventTouchUpInside];
     [content addArrangedSubview:homeButton];
@@ -108,6 +112,7 @@
         [self.recordLabel.trailingAnchor constraintEqualToAnchor:recordTitle.trailingAnchor],
         [self.recordLabel.bottomAnchor constraintEqualToAnchor:recordCard.bottomAnchor constant:-16.0],
         [self.rematchButton.heightAnchor constraintEqualToConstant:50.0],
+        [rulesButton.heightAnchor constraintEqualToConstant:46.0],
         [homeButton.heightAnchor constraintEqualToConstant:46.0],
     ]];
 
@@ -118,15 +123,32 @@
 
 - (void)requestRematch:(id)sender
 {
-    FGChallengeRaceContract *rematchContract = self.rematchContractProvider != nil
-        ? self.rematchContractProvider()
-        : nil;
-    if (rematchContract == nil || ![self.coordinator requestRematchWithContract:rematchContract]) {
+    BOOL requested = NO;
+    if (self.rematchContractProvider != nil) {
+        FGChallengeRaceContract *rematchContract = self.rematchContractProvider();
+        requested = rematchContract != nil && [self.coordinator requestRematchWithContract:rematchContract];
+    } else {
+        requested = [self.coordinator requestNetworkRematchAtDate:[NSDate date]];
+    }
+    if (!requested) {
         self.detailLabel.text = @"Unable to start a rematch right now.";
         return;
     }
+    self.rematchButton.enabled = NO;
+    self.detailLabel.text = @"Rematch requested. Waiting for your friend.";
+}
 
-    [self dismissViewControllerAnimated:YES completion:nil];
+- (void)showRules:(id)sender
+{
+    (void)sender;
+    NSString *rules = @"Same deterministic course • Synchronized start\n\n"
+        @"3-second finish window • 5-second reconnect grace • Disconnect forfeits • Both disconnects void\n\n"
+        @"Progress, score, timing, and final records are verified by both players.";
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Rules"
+                                                                   message:rules
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Got it" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)backToHome:(id)sender
@@ -153,15 +175,15 @@
     switch (outcome) {
         case FGChallengeOutcomeWin:
             self.outcomeLabel.text = @"You Win";
-            self.detailLabel.text = @"Verified result.";
+            self.detailLabel.text = [self verifiedProgressText];
             break;
         case FGChallengeOutcomeLoss:
             self.outcomeLabel.text = @"You Lost";
-            self.detailLabel.text = @"Verified result.";
+            self.detailLabel.text = [self verifiedProgressText];
             break;
         case FGChallengeOutcomeDraw:
             self.outcomeLabel.text = @"Draw";
-            self.detailLabel.text = @"Verified result.";
+            self.detailLabel.text = [self verifiedProgressText];
             break;
         case FGChallengeOutcomeUnverified:
         default:
@@ -178,7 +200,14 @@
                              (long)[record[@"currentWinStreak"] integerValue],
                              (long)[record[@"bestWinStreak"] integerValue],
                              (long)[record[@"totalLiveRaces"] integerValue]];
-    self.rematchButton.enabled = self.rematchContractProvider != nil;
+    self.rematchButton.enabled = self.rematchContractProvider != nil || self.coordinator.isNetworkSessionActive;
+}
+
+- (NSString *)verifiedProgressText
+{
+    return [NSString stringWithFormat:@"Verified result.\nProgress — You: %lu • Friend: %lu",
+            (unsigned long)self.coordinator.localProgressCheckpoint,
+            (unsigned long)self.coordinator.remoteProgressCheckpoint];
 }
 
 #pragma mark - Presentation helpers

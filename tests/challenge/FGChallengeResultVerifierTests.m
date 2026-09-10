@@ -47,6 +47,7 @@ static NSDictionary<NSString *, id> *FGChallengeFinalRecord(NSString *playerIden
         @"crashed": @(crashed),
         @"disconnected": @(disconnected),
         @"disconnectDurationSeconds": @(disconnectDurationSeconds),
+        @"elapsedTime": @60.0,
     };
 }
 
@@ -155,6 +156,22 @@ static FGChallengeVerifiedResult *FGChallengeVerify(NSDictionary<NSString *, id>
     XCTAssertEqual(result.localOutcome, FGChallengeOutcomeWin);
 }
 
+- (void)testImpossibleCourseProgressAndTimingAreUnverified
+{
+    NSDictionary *local = FGChallengeFinalRecord(@"player-alpha", 1, 1, YES, NO, 0.0);
+    NSMutableDictionary *impossibleProgress = [FGChallengeFinalRecord(@"player-bravo", 42, 8, YES, NO, 0.0) mutableCopy];
+    impossibleProgress[@"elapsedTime"] = @1.0;
+    XCTAssertFalse(FGChallengeVerify(local, impossibleProgress).verified);
+
+    NSMutableDictionary *impossibleDisconnect = [FGChallengeFinalRecord(@"player-bravo", 1, 1, NO, YES, 6.0) mutableCopy];
+    impossibleDisconnect[@"elapsedTime"] = @5.0;
+    XCTAssertFalse(FGChallengeVerify(local, impossibleDisconnect).verified);
+
+    NSMutableDictionary *missingElapsedTime = [FGChallengeFinalRecord(@"player-bravo", 1, 1, YES, NO, 0.0) mutableCopy];
+    [missingElapsedTime removeObjectForKey:@"elapsedTime"];
+    XCTAssertFalse(FGChallengeVerify(local, missingElapsedTime).verified);
+}
+
 @end
 
 #else
@@ -244,6 +261,24 @@ static void FGTestRemoteClaimedWinnerNeverOverridesIndependentDerivation(void)
     FGRequire(result.localOutcome == FGChallengeOutcomeWin, @"claimed remote winner does not override independently derived progress result");
 }
 
+static void FGTestImpossibleCourseProgressAndTimingAreUnverified(void)
+{
+    NSDictionary *local = FGChallengeFinalRecord(@"player-alpha", 1, 1, YES, NO, 0.0);
+    NSMutableDictionary *impossibleProgress = [FGChallengeFinalRecord(@"player-bravo", 42, 8, YES, NO, 0.0) mutableCopy];
+    NSMutableDictionary *impossibleDisconnect = [FGChallengeFinalRecord(@"player-bravo", 1, 1, NO, YES, 6.0) mutableCopy];
+    NSMutableDictionary *missingElapsedTime = [FGChallengeFinalRecord(@"player-bravo", 1, 1, YES, NO, 0.0) mutableCopy];
+
+    impossibleProgress[@"elapsedTime"] = @1.0;
+    impossibleDisconnect[@"elapsedTime"] = @5.0;
+    [missingElapsedTime removeObjectForKey:@"elapsedTime"];
+    FGRequire(!FGChallengeVerify(local, impossibleProgress).verified,
+              @"progress unreachable on the deterministic course fails verification");
+    FGRequire(!FGChallengeVerify(local, impossibleDisconnect).verified,
+              @"disconnect duration cannot exceed the record's elapsed race time");
+    FGRequire(!FGChallengeVerify(local, missingElapsedTime).verified,
+              @"a final record without deterministic elapsed time fails closed");
+}
+
 int main(void)
 {
     @autoreleasepool {
@@ -256,6 +291,7 @@ int main(void)
         FGTestMismatchedContractFingerprintIsUnverified();
         FGTestMalformedFinalRecordIsUnverified();
         FGTestRemoteClaimedWinnerNeverOverridesIndependentDerivation();
+        FGTestImpossibleCourseProgressAndTimingAreUnverified();
         puts("PASS: Live Challenge result verification");
     }
     return 0;

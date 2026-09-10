@@ -18,6 +18,13 @@
  didUpdateLocalProgressCheckpoint:(NSUInteger)progressCheckpoint
                       score:(NSInteger)score;
 - (void)challengeRaceScene:(FGChallengeRaceScene *)raceScene
+didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
+                      score:(NSInteger)score
+                normalizedBirdY:(CGFloat)normalizedBirdY
+                     motionHint:(CGFloat)motionHint
+                     elapsedTime:(NSTimeInterval)elapsedTime
+                           alive:(BOOL)alive;
+- (void)challengeRaceScene:(FGChallengeRaceScene *)raceScene
   didProduceLocalFinalRecord:(NSDictionary<NSString *, id> *)finalRecord;
 
 @end
@@ -41,6 +48,7 @@
 - (instancetype)init NS_UNAVAILABLE;
 
 - (void)startRaceAtTime:(NSTimeInterval)currentTime;
+- (void)finishRaceAtTime:(NSTimeInterval)currentTime;
 - (void)receiveAcceptedRemotePacket:(FGChallengePacket *)packet;
 - (void)update:(NSTimeInterval)currentTime;
 

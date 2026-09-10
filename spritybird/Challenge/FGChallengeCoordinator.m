@@ -1,11 +1,14 @@
 #import "FGChallengeCoordinator.h"
 
+#import "FGChallengeCourseGenerator.h"
 #import "FGChallengePacket.h"
 #import "FGChallengeRaceContract.h"
 #import "FGChallengeRaceScene.h"
 #import "FGChallengeRecordStore.h"
 #import "FGChallengeResultVerifier.h"
 #import "FGChallengeTransport.h"
+
+#import <math.h>
 
 static NSString * const FGChallengeCoordinatorReasonResultDisagreement = @"result-disagreement";
 static NSString * const FGChallengeCoordinatorReasonBothDisconnected = @"both-players-disconnected";
@@ -94,6 +97,19 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
 @property (nonatomic, assign, readwrite) NSUInteger localProgressCheckpoint;
 @property (nonatomic, assign, readwrite) NSInteger localScore;
 @property (nonatomic, copy, readwrite) NSDictionary<NSString *, id> *latestLocalFinalRecord;
+@property (nonatomic, assign, readwrite, getter=isNetworkSessionActive) BOOL networkSessionActive;
+@property (nonatomic, assign, readwrite) NSUInteger remoteProgressCheckpoint;
+@property (nonatomic, assign, readwrite) NSInteger remoteScore;
+@property (nonatomic, strong, readwrite) FGChallengePacket *lastAcceptedRemotePacket;
+@property (nonatomic, assign) uint64_t nextLocalSequenceNumber;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *lastRemoteSequenceByStream;
+@property (nonatomic, strong) FGChallengeRaceContract *pendingLocalContract;
+@property (nonatomic, copy) NSDictionary<NSString *, id> *latestRemoteFinalRecord;
+@property (nonatomic, assign) BOOL sentVerificationPacket;
+@property (nonatomic, assign) BOOL hasRemoteDerivedOutcome;
+@property (nonatomic, assign) FGChallengeOutcome remoteDerivedOutcome;
+@property (nonatomic, assign) BOOL localRematchRequested;
+@property (nonatomic, assign) BOOL remoteRematchRequested;
 @end
 
 @implementation FGChallengeCoordinator
@@ -114,13 +130,28 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
         _localPlayerIdentifier = [localPlayerIdentifier copy];
         _state = FGChallengeCoordinatorStateIdle;
         _outcome = FGChallengeOutcomeVoid;
+        _nextLocalSequenceNumber = 1;
+        _lastRemoteSequenceByStream = [NSMutableDictionary dictionary];
         transport.delegate = self;
     }
     return self;
 }
 
+- (BOOL)activateNetworkSession
+{
+    if (self.networkSessionActive || self.state != FGChallengeCoordinatorStateIdle ||
+        !self.transport.isAvailable || !self.transport.isAuthenticated) {
+        return NO;
+    }
+    self.networkSessionActive = YES;
+    return YES;
+}
+
 - (BOOL)beginInvitation
 {
+    if (self.state == FGChallengeCoordinatorStateInviting && self.transport.isAvailable && self.transport.isAuthenticated) {
+        return YES;
+    }
     if (self.state != FGChallengeCoordinatorStateIdle || !self.transport.isAvailable || !self.transport.isAuthenticated) {
         return NO;
     }
@@ -145,6 +176,15 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     }
     self.localReady = ready;
     [self updateReadinessState];
+    if (self.networkSessionActive && ![self sendReadyPacket:ready]) {
+        self.localReady = !ready;
+        [self updateReadinessState];
+        return NO;
+    }
+    if (self.networkSessionActive && ready && self.state == FGChallengeCoordinatorStateReady &&
+        [self isLocalContractAuthority]) {
+        return [self proposeCanonicalContractAtDate:[NSDate date]];
+    }
     return YES;
 }
 
@@ -196,6 +236,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
         return NO;
     }
     self.state = FGChallengeCoordinatorStateRacing;
+    self.transport.reconnectAllowed = YES;
     return YES;
 }
 
@@ -239,7 +280,17 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
 
 - (BOOL)advanceToDate:(NSDate *)date
 {
-    if (date == nil || ![self canHandleRaceConnectivityAtDate:date]) {
+    if (date == nil) {
+        return NO;
+    }
+    if (self.state == FGChallengeCoordinatorStateCountdown) {
+        if ([date compare:self.activeContract.synchronizedStartDate] != NSOrderedAscending) {
+            self.state = FGChallengeCoordinatorStateRacing;
+            self.transport.reconnectAllowed = YES;
+        }
+        return YES;
+    }
+    if (![self canHandleRaceConnectivityAtDate:date]) {
         return NO;
     }
     if ([self disconnectHasExceededGrace:self.localDisconnectDate atDate:date]) {
@@ -252,8 +303,54 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     }
     if (self.state == FGChallengeCoordinatorStateFinishWindow && [date compare:self.finishWindowDeadline] != NSOrderedAscending) {
         self.state = FGChallengeCoordinatorStateVerifying;
+        [self attemptNetworkVerification];
     }
     return YES;
+}
+
+- (BOOL)receiveRemotePacket:(FGChallengePacket *)packet
+       fromPlayerIdentifier:(NSString *)playerIdentifier
+                     atDate:(NSDate *)receiptDate
+{
+    NSString *streamKey;
+    NSNumber *lastSequence;
+    BOOL accepted = NO;
+
+    if (![packet isKindOfClass:[FGChallengePacket class]] || receiptDate == nil ||
+        ![playerIdentifier isEqualToString:self.peerPlayerIdentifier] ||
+        ![packet.playerIdentifier isEqualToString:self.peerPlayerIdentifier]) {
+        return NO;
+    }
+    streamKey = [NSString stringWithFormat:@"%@\n%@", packet.playerIdentifier, packet.raceIdentifier];
+    lastSequence = self.lastRemoteSequenceByStream[streamKey];
+    if (lastSequence != nil && packet.sequenceNumber <= lastSequence.unsignedLongLongValue) {
+        return NO;
+    }
+
+    switch (packet.kind) {
+        case FGChallengePacketKindReady:
+            accepted = [self receiveReadyPacket:packet receiptDate:receiptDate];
+            break;
+        case FGChallengePacketKindContract:
+            accepted = [self receiveContractPacket:packet receiptDate:receiptDate];
+            break;
+        case FGChallengePacketKindContractAcknowledgement:
+            accepted = [self receiveContractAcknowledgementPacket:packet];
+            break;
+        case FGChallengePacketKindRaceState:
+            accepted = [self receiveRaceStatePacket:packet receiptDate:receiptDate];
+            break;
+        case FGChallengePacketKindVerification:
+            accepted = [self receiveVerificationPacket:packet receiptDate:receiptDate];
+            break;
+        case FGChallengePacketKindRematch:
+            accepted = [self receiveRematchPacket:packet receiptDate:receiptDate];
+            break;
+    }
+    if (accepted) {
+        self.lastRemoteSequenceByStream[streamKey] = @(packet.sequenceNumber);
+    }
+    return accepted;
 }
 
 - (BOOL)completeVerificationWithLocalFinalRecord:(NSDictionary<NSString *,id> *)localFinalRecord
@@ -300,6 +397,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
         self.resultVerified = NO;
         self.resultReason = !result.isVerified ? result.reason : FGChallengeCoordinatorReasonResultDisagreement;
         self.state = FGChallengeCoordinatorStateVoided;
+        self.transport.reconnectAllowed = NO;
         [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:authoritativeLocalFinalRecord];
         return YES;
     }
@@ -310,12 +408,15 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     }
     if (result.localOutcome == FGChallengeOutcomeVoid) {
         self.state = FGChallengeCoordinatorStateVoided;
+        self.transport.reconnectAllowed = NO;
         [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:authoritativeLocalFinalRecord];
     } else if (FGChallengeOutcomeIsCompetitive(result.localOutcome)) {
         self.state = FGChallengeCoordinatorStateResults;
+        self.transport.reconnectAllowed = NO;
         [self recordCompetitiveOutcome:result.localOutcome localRecord:authoritativeLocalFinalRecord];
     } else {
         self.state = FGChallengeCoordinatorStateVoided;
+        self.transport.reconnectAllowed = NO;
         [self recordDiagnosticWithOutcome:FGChallengeOutcomeUnverified localRecord:authoritativeLocalFinalRecord];
     }
     self.hasPendingForfeit = NO;
@@ -344,7 +445,37 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     self.localProgressCheckpoint = 0;
     self.localScore = 0;
     self.latestLocalFinalRecord = nil;
+    self.latestRemoteFinalRecord = nil;
+    self.sentVerificationPacket = NO;
+    self.hasRemoteDerivedOutcome = NO;
+    self.localRematchRequested = NO;
+    self.remoteRematchRequested = NO;
     self.state = FGChallengeCoordinatorStateLobby;
+    return YES;
+}
+
+- (BOOL)requestNetworkRematchAtDate:(NSDate *)date
+{
+    FGChallengePacket *packet;
+
+    if (!self.networkSessionActive || date == nil || self.localRematchRequested ||
+        (self.state != FGChallengeCoordinatorStateResults && self.state != FGChallengeCoordinatorStateVoided) ||
+        self.activeContract.raceIdentifier.length == 0) {
+        return NO;
+    }
+    packet = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindRematch
+                                        raceIdentifier:self.activeContract.raceIdentifier
+                                      playerIdentifier:self.localPlayerIdentifier
+                                        sequenceNumber:self.nextLocalSequenceNumber
+                                             timestamp:0.0
+                                               payload:@{ @"ready": @YES }];
+    if (![self sendPacket:packet]) {
+        return NO;
+    }
+    self.localRematchRequested = YES;
+    if (self.remoteRematchRequested) {
+        return [self beginNetworkRematchAtDate:date];
+    }
     return YES;
 }
 
@@ -357,6 +488,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     self.resultVerified = YES;
     self.resultReason = FGChallengeCoordinatorReasonBothDisconnected;
     self.state = FGChallengeCoordinatorStateVoided;
+    self.transport.reconnectAllowed = NO;
     [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:nil];
     return YES;
 }
@@ -374,6 +506,46 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     }
     self.localProgressCheckpoint = progressCheckpoint;
     self.localScore = score;
+}
+
+- (void)challengeRaceScene:(FGChallengeRaceScene *)raceScene
+didUpdateLocalSnapshotWithProgressCheckpoint:(NSUInteger)progressCheckpoint
+                      score:(NSInteger)score
+                normalizedBirdY:(CGFloat)normalizedBirdY
+                     motionHint:(CGFloat)motionHint
+                     elapsedTime:(NSTimeInterval)elapsedTime
+                           alive:(BOOL)alive
+{
+    FGChallengeCourseGenerator *generator;
+    FGChallengePacket *packet;
+
+    (void)raceScene;
+    if (!self.networkSessionActive || ![self canConsumeSceneEvent] ||
+        !isfinite(normalizedBirdY) || normalizedBirdY < 0.0 || normalizedBirdY > 1.0 ||
+        !isfinite(motionHint) || motionHint < -1.0 || motionHint > 1.0 ||
+        !isfinite(elapsedTime) || elapsedTime < 0.0 || score < 0 ||
+        (NSUInteger)score > progressCheckpoint || progressCheckpoint < self.localProgressCheckpoint ||
+        score < self.localScore) {
+        return;
+    }
+    generator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:self.activeContract.courseGenerationVersion];
+    if (generator == nil || progressCheckpoint > [generator maximumReachableProgressAtElapsedTime:elapsedTime]) {
+        return;
+    }
+    self.localProgressCheckpoint = progressCheckpoint;
+    self.localScore = score;
+    packet = [[FGChallengePacket alloc] initWithRaceIdentifier:self.activeContract.raceIdentifier
+                                              playerIdentifier:self.localPlayerIdentifier
+                                                sequenceNumber:self.nextLocalSequenceNumber
+                                                     timestamp:elapsedTime
+                                            progressCheckpoint:progressCheckpoint
+                                                         score:score
+                                                         birdY:normalizedBirdY
+                                                    motionHint:motionHint
+                                                         alive:alive
+                                                  disconnected:self.localDisconnectDate != nil
+                                                   finalRecord:nil];
+    [self sendPacket:packet];
 }
 
 - (void)challengeRaceScene:(FGChallengeRaceScene *)raceScene
@@ -400,6 +572,10 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     self.localProgressCheckpoint = progressCheckpoint.unsignedIntegerValue;
     self.localScore = score.integerValue;
     self.latestLocalFinalRecord = snapshot;
+    if (self.networkSessionActive) {
+        [self sendLocalFinalRecord:snapshot];
+        [self attemptNetworkVerification];
+    }
 }
 
 #pragma mark - FGChallengeTransportDelegate
@@ -432,20 +608,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
 - (void)challengeTransport:(FGChallengeTransport *)transport didReceivePacket:(FGChallengePacket *)packet fromPlayerIdentifier:(NSString *)playerIdentifier
 {
     (void)transport;
-    if (![packet isKindOfClass:[FGChallengePacket class]] || self.activeContract == nil ||
-        ![playerIdentifier isEqualToString:self.peerPlayerIdentifier] ||
-        ![packet.playerIdentifier isEqualToString:self.peerPlayerIdentifier] ||
-        ![packet.raceIdentifier isEqualToString:self.activeContract.raceIdentifier] ||
-        ![packet shouldAcceptAfterPacket:self.lastPeerPacket]) {
-        return;
-    }
-    self.lastPeerPacket = packet;
-    if (packet.isDisconnected) {
-        [self recordPeerDisconnectedAtDate:[NSDate dateWithTimeIntervalSince1970:packet.timestamp]];
-    }
-    if (!packet.isAlive) {
-        [self recordPeerCrashAtDate:[NSDate dateWithTimeIntervalSince1970:packet.timestamp]];
-    }
+    [self receiveRemotePacket:packet fromPlayerIdentifier:playerIdentifier atDate:[NSDate date]];
 }
 
 - (void)challengeTransportDidBecomeUnavailable:(FGChallengeTransport *)transport error:(NSError *)error
@@ -475,6 +638,341 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
 
 #pragma mark - Internal state helpers
 
+- (NSString *)lobbyStreamIdentifier
+{
+    if (self.localPlayerIdentifier.length == 0 || self.peerPlayerIdentifier.length == 0) {
+        return nil;
+    }
+    NSArray<NSString *> *players = [@[ self.localPlayerIdentifier, self.peerPlayerIdentifier ]
+        sortedArrayUsingSelector:@selector(compare:)];
+    return [NSString stringWithFormat:@"lobby:%lu:%@%lu:%@",
+            (unsigned long)[players[0] length], players[0],
+            (unsigned long)[players[1] length], players[1]];
+}
+
+- (BOOL)sendReadyPacket:(BOOL)ready
+{
+    NSString *streamIdentifier = [self lobbyStreamIdentifier];
+    FGChallengePacket *packet;
+
+    if (streamIdentifier.length == 0) {
+        return NO;
+    }
+    packet = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindReady
+                                        raceIdentifier:streamIdentifier
+                                      playerIdentifier:self.localPlayerIdentifier
+                                        sequenceNumber:self.nextLocalSequenceNumber
+                                             timestamp:0.0
+                                               payload:@{ @"ready": @(ready) }];
+    return [self sendPacket:packet];
+}
+
+- (BOOL)sendPacket:(FGChallengePacket *)packet
+{
+    NSError *error = nil;
+
+    if (packet == nil || self.peerPlayerIdentifier.length == 0 ||
+        ![self.transport sendPacket:packet toPlayerIdentifiers:@[ self.peerPlayerIdentifier ] error:&error]) {
+        return NO;
+    }
+    self.nextLocalSequenceNumber += 1;
+    return YES;
+}
+
+- (BOOL)receiveReadyPacket:(FGChallengePacket *)packet receiptDate:(NSDate *)receiptDate
+{
+    if (!self.networkSessionActive ||
+        ![packet.raceIdentifier isEqualToString:[self lobbyStreamIdentifier]] ||
+        (self.state != FGChallengeCoordinatorStateLobby && self.state != FGChallengeCoordinatorStateReady) ||
+        ![packet.payload[@"ready"] isKindOfClass:[NSNumber class]] ||
+        CFGetTypeID((__bridge CFTypeRef)packet.payload[@"ready"]) != CFBooleanGetTypeID() ||
+        ![self updateRemoteReady:[packet.payload[@"ready"] boolValue]]) {
+        return NO;
+    }
+    if (self.state == FGChallengeCoordinatorStateReady && [self isLocalContractAuthority]) {
+        return [self proposeCanonicalContractAtDate:receiptDate];
+    }
+    return YES;
+}
+
+- (BOOL)isLocalContractAuthority
+{
+    return self.peerPlayerIdentifier.length > 0 &&
+           [self.localPlayerIdentifier compare:self.peerPlayerIdentifier] == NSOrderedAscending;
+}
+
+- (uint64_t)newRaceSeed
+{
+    uuid_t bytes;
+    [[[NSUUID alloc] init] getUUIDBytes:bytes];
+    uint64_t seed = 0;
+    NSUInteger index;
+
+    for (index = 0; index < sizeof(seed); index += 1) {
+        seed = (seed << 8) | bytes[index];
+    }
+    return seed;
+}
+
+- (BOOL)proposeCanonicalContractAtDate:(NSDate *)date
+{
+    FGChallengeRaceContract *contract;
+    FGChallengePacket *packet;
+
+    if (date == nil || self.pendingLocalContract != nil || ![self isLocalContractAuthority]) {
+        return NO;
+    }
+    contract = [FGChallengeRaceContract canonicalContractWithRaceIdentifier:[[NSUUID UUID] UUIDString]
+                                                                        seed:[self newRaceSeed]
+                                                       firstPlayerIdentifier:self.localPlayerIdentifier
+                                                      secondPlayerIdentifier:self.peerPlayerIdentifier
+                                                        synchronizedStartDate:[date dateByAddingTimeInterval:FGChallengeCountdownSeconds]];
+    packet = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindContract
+                                        raceIdentifier:[self lobbyStreamIdentifier]
+                                      playerIdentifier:self.localPlayerIdentifier
+                                        sequenceNumber:self.nextLocalSequenceNumber
+                                             timestamp:0.0
+                                               payload:@{ @"contract": contract.dictionaryRepresentation }];
+    if (![self sendPacket:packet]) {
+        return NO;
+    }
+    self.pendingLocalContract = contract;
+    return YES;
+}
+
+- (BOOL)receiveContractPacket:(FGChallengePacket *)packet receiptDate:(NSDate *)receiptDate
+{
+    NSError *error = nil;
+    FGChallengeRaceContract *contract;
+    FGChallengePacket *acknowledgement;
+
+    (void)receiptDate;
+    if (!self.networkSessionActive || [self isLocalContractAuthority] ||
+        self.state != FGChallengeCoordinatorStateReady ||
+        ![packet.raceIdentifier isEqualToString:[self lobbyStreamIdentifier]]) {
+        return NO;
+    }
+    contract = [FGChallengeRaceContract contractFromDictionary:packet.payload[@"contract"] error:&error];
+    if (contract == nil || ![self contractHasExpectedParticipants:contract] ||
+        ![self lockLocalContract:contract remoteContract:contract]) {
+        return NO;
+    }
+    acknowledgement = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindContractAcknowledgement
+                                                  raceIdentifier:[self lobbyStreamIdentifier]
+                                                playerIdentifier:self.localPlayerIdentifier
+                                                  sequenceNumber:self.nextLocalSequenceNumber
+                                                       timestamp:0.0
+                                                         payload:@{}];
+    if (![self sendPacket:acknowledgement] || ![self beginCountdownAtDate:contract.synchronizedStartDate]) {
+        [self voidMatch];
+        return NO;
+    }
+    return YES;
+}
+
+- (BOOL)receiveContractAcknowledgementPacket:(FGChallengePacket *)packet
+{
+    FGChallengeRaceContract *contract = self.pendingLocalContract;
+
+    if (!self.networkSessionActive || ![self isLocalContractAuthority] || contract == nil ||
+        self.state != FGChallengeCoordinatorStateReady ||
+        ![packet.raceIdentifier isEqualToString:[self lobbyStreamIdentifier]] ||
+        ![self lockLocalContract:contract remoteContract:contract] ||
+        ![self beginCountdownAtDate:contract.synchronizedStartDate]) {
+        return NO;
+    }
+    self.pendingLocalContract = nil;
+    return YES;
+}
+
+- (BOOL)receiveRaceStatePacket:(FGChallengePacket *)packet receiptDate:(NSDate *)receiptDate
+{
+    FGChallengeCourseGenerator *generator;
+    NSTimeInterval localElapsed;
+    NSDictionary<NSString *, id> *remoteFinalRecord = nil;
+
+    if (self.activeContract == nil ||
+        (self.state != FGChallengeCoordinatorStateRacing &&
+         self.state != FGChallengeCoordinatorStateFinishWindow &&
+         !(self.state == FGChallengeCoordinatorStateVerifying && packet.finalRecord != nil)) ||
+        ![packet.raceIdentifier isEqualToString:self.activeContract.raceIdentifier] ||
+        packet.timestamp < 0.0 || packet.birdY < 0.0 || packet.birdY > 1.0 ||
+        packet.motionHint < -1.0 || packet.motionHint > 1.0 ||
+        packet.score < 0 || (NSUInteger)packet.score > packet.progressCheckpoint ||
+        (self.lastPeerPacket != nil &&
+         (packet.sequenceNumber <= self.lastPeerPacket.sequenceNumber ||
+          packet.timestamp < self.lastPeerPacket.timestamp ||
+          packet.progressCheckpoint < self.lastPeerPacket.progressCheckpoint ||
+          packet.score < self.lastPeerPacket.score ||
+          (!self.lastPeerPacket.isAlive && packet.isAlive)))) {
+        return NO;
+    }
+    localElapsed = [receiptDate timeIntervalSinceDate:self.activeContract.synchronizedStartDate];
+    if (localElapsed < 0.0 || packet.timestamp > localElapsed + 0.5) {
+        return NO;
+    }
+    generator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:self.activeContract.courseGenerationVersion];
+    if (generator == nil || packet.progressCheckpoint > [generator maximumReachableProgressAtElapsedTime:packet.timestamp]) {
+        return NO;
+    }
+    if (packet.finalRecord != nil) {
+        remoteFinalRecord = [self immutableSceneFinalRecordSnapshot:packet.finalRecord];
+        if (![self finalRecord:remoteFinalRecord matchesPlayerIdentifier:self.peerPlayerIdentifier] ||
+            [remoteFinalRecord[@"progressCheckpoint"] unsignedIntegerValue] != packet.progressCheckpoint ||
+            [remoteFinalRecord[@"score"] integerValue] != packet.score ||
+            fabs([remoteFinalRecord[@"elapsedTime"] doubleValue] - packet.timestamp) > 0.001 ||
+            [remoteFinalRecord[@"disconnected"] boolValue] != packet.isDisconnected ||
+            [remoteFinalRecord[@"crashed"] boolValue] == packet.isAlive ||
+            (self.latestRemoteFinalRecord != nil &&
+             ![self.latestRemoteFinalRecord isEqualToDictionary:remoteFinalRecord])) {
+            return NO;
+        }
+    }
+    self.lastPeerPacket = packet;
+    self.lastAcceptedRemotePacket = packet;
+    self.remoteProgressCheckpoint = packet.progressCheckpoint;
+    self.remoteScore = packet.score;
+    if (remoteFinalRecord != nil) {
+        self.latestRemoteFinalRecord = remoteFinalRecord;
+    }
+    if (packet.isDisconnected) {
+        [self recordPeerDisconnectedAtDate:receiptDate];
+    }
+    if (!packet.isAlive) {
+        [self recordPeerCrashAtDate:receiptDate];
+    }
+    [self attemptNetworkVerification];
+    return YES;
+}
+
+- (BOOL)sendLocalFinalRecord:(NSDictionary<NSString *, id> *)finalRecord
+{
+    FGChallengePacket *packet;
+    NSNumber *elapsedTime = finalRecord[@"elapsedTime"];
+
+    packet = [[FGChallengePacket alloc] initWithRaceIdentifier:self.activeContract.raceIdentifier
+                                              playerIdentifier:self.localPlayerIdentifier
+                                                sequenceNumber:self.nextLocalSequenceNumber
+                                                     timestamp:elapsedTime.doubleValue
+                                            progressCheckpoint:[finalRecord[@"progressCheckpoint"] unsignedIntegerValue]
+                                                         score:[finalRecord[@"score"] integerValue]
+                                                         birdY:0.5
+                                                    motionHint:0.0
+                                                         alive:![finalRecord[@"crashed"] boolValue]
+                                                  disconnected:[finalRecord[@"disconnected"] boolValue]
+                                                   finalRecord:finalRecord];
+    return [self sendPacket:packet];
+}
+
+- (BOOL)receiveVerificationPacket:(FGChallengePacket *)packet receiptDate:(NSDate *)receiptDate
+{
+    NSDictionary<NSString *, id> *remoteFinalRecord;
+    NSNumber *remoteOutcome;
+    NSTimeInterval localElapsed;
+
+    if (!self.networkSessionActive ||
+        (self.state != FGChallengeCoordinatorStateFinishWindow && self.state != FGChallengeCoordinatorStateVerifying) ||
+        ![packet.raceIdentifier isEqualToString:self.activeContract.raceIdentifier]) {
+        return NO;
+    }
+    localElapsed = [receiptDate timeIntervalSinceDate:self.activeContract.synchronizedStartDate];
+    remoteFinalRecord = [self immutableSceneFinalRecordSnapshot:packet.payload[@"finalRecord"]];
+    remoteOutcome = packet.payload[@"derivedOutcome"];
+    if (localElapsed < 0.0 || packet.timestamp > localElapsed + 0.5 ||
+        ![self finalRecord:remoteFinalRecord matchesPlayerIdentifier:self.peerPlayerIdentifier] ||
+        self.latestRemoteFinalRecord == nil ||
+        ![self.latestRemoteFinalRecord isEqualToDictionary:remoteFinalRecord] ||
+        ![self validOutcome:(FGChallengeOutcome)remoteOutcome.integerValue]) {
+        return NO;
+    }
+    self.hasRemoteDerivedOutcome = YES;
+    self.remoteDerivedOutcome = (FGChallengeOutcome)remoteOutcome.integerValue;
+    [self attemptNetworkVerification];
+    return YES;
+}
+
+- (BOOL)receiveRematchPacket:(FGChallengePacket *)packet receiptDate:(NSDate *)receiptDate
+{
+    id ready = packet.payload[@"ready"];
+
+    if (!self.networkSessionActive ||
+        (self.state != FGChallengeCoordinatorStateResults && self.state != FGChallengeCoordinatorStateVoided) ||
+        ![packet.raceIdentifier isEqualToString:self.activeContract.raceIdentifier] ||
+        ![self isBooleanNumber:ready] || ![ready boolValue]) {
+        return NO;
+    }
+    self.remoteRematchRequested = YES;
+    if (self.localRematchRequested) {
+        return [self beginNetworkRematchAtDate:receiptDate];
+    }
+    return YES;
+}
+
+- (BOOL)beginNetworkRematchAtDate:(NSDate *)date
+{
+    if (date == nil || !self.localRematchRequested || !self.remoteRematchRequested) {
+        return NO;
+    }
+    self.activeContract = nil;
+    self.pendingLocalContract = nil;
+    self.localReady = YES;
+    self.remoteReady = YES;
+    self.finishWindowDeadline = nil;
+    self.localDisconnectDate = nil;
+    self.peerDisconnectDate = nil;
+    self.lastPeerPacket = nil;
+    self.lastAcceptedRemotePacket = nil;
+    self.latestLocalFinalRecord = nil;
+    self.latestRemoteFinalRecord = nil;
+    self.sentVerificationPacket = NO;
+    self.hasRemoteDerivedOutcome = NO;
+    self.hasPendingForfeit = NO;
+    self.localProgressCheckpoint = 0;
+    self.localScore = 0;
+    self.remoteProgressCheckpoint = 0;
+    self.remoteScore = 0;
+    self.outcome = FGChallengeOutcomeVoid;
+    self.resultVerified = NO;
+    self.resultReason = nil;
+    self.transport.reconnectAllowed = NO;
+    self.state = FGChallengeCoordinatorStateReady;
+    self.localRematchRequested = NO;
+    self.remoteRematchRequested = NO;
+    return ![self isLocalContractAuthority] || [self proposeCanonicalContractAtDate:date];
+}
+
+- (void)attemptNetworkVerification
+{
+    FGChallengeVerifiedResult *result;
+    FGChallengePacket *verificationPacket;
+
+    if (!self.networkSessionActive || self.state != FGChallengeCoordinatorStateVerifying ||
+        self.latestLocalFinalRecord == nil || self.latestRemoteFinalRecord == nil) {
+        return;
+    }
+    result = [self.resultVerifier verifyLocalRecord:self.latestLocalFinalRecord
+                                       remoteRecord:self.latestRemoteFinalRecord
+                                           contract:self.activeContract];
+    if (!self.sentVerificationPacket) {
+        verificationPacket = [FGChallengePacket controlPacketWithKind:FGChallengePacketKindVerification
+                                                         raceIdentifier:self.activeContract.raceIdentifier
+                                                       playerIdentifier:self.localPlayerIdentifier
+                                                         sequenceNumber:self.nextLocalSequenceNumber
+                                                              timestamp:[self.latestLocalFinalRecord[@"elapsedTime"] doubleValue]
+                                                                payload:@{ @"finalRecord": self.latestLocalFinalRecord,
+                                                                           @"derivedOutcome": @(result.localOutcome) }];
+        if (![self sendPacket:verificationPacket]) {
+            return;
+        }
+        self.sentVerificationPacket = YES;
+    }
+    if (self.hasRemoteDerivedOutcome) {
+        [self completeVerificationWithLocalFinalRecord:nil
+                                     remoteFinalRecord:self.latestRemoteFinalRecord
+                                remoteDerivedOutcome:self.remoteDerivedOutcome];
+    }
+}
+
 - (BOOL)recordCrashAtDate:(NSDate *)date
 {
     if (date == nil || (self.state != FGChallengeCoordinatorStateRacing && self.state != FGChallengeCoordinatorStateFinishWindow)) {
@@ -497,6 +995,12 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
 
 - (BOOL)sceneFinalRecordMatchesActiveContract:(NSDictionary<NSString *, id> *)finalRecord
 {
+    return [self finalRecord:finalRecord matchesPlayerIdentifier:self.localPlayerIdentifier];
+}
+
+- (BOOL)finalRecord:(NSDictionary<NSString *, id> *)finalRecord
+matchesPlayerIdentifier:(NSString *)expectedPlayerIdentifier
+{
     NSString *raceIdentifier;
     NSString *playerIdentifier;
     NSString *compatibilityFingerprint;
@@ -505,6 +1009,8 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     NSNumber *crashed;
     NSNumber *disconnected;
     NSNumber *disconnectDurationSeconds;
+    NSNumber *elapsedTime;
+    FGChallengeCourseGenerator *courseGenerator;
 
     if (![finalRecord isKindOfClass:[NSDictionary class]]) {
         return NO;
@@ -517,18 +1023,30 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     crashed = finalRecord[@"crashed"];
     disconnected = finalRecord[@"disconnected"];
     disconnectDurationSeconds = finalRecord[@"disconnectDurationSeconds"];
+    elapsedTime = finalRecord[@"elapsedTime"];
+    courseGenerator = [[FGChallengeCourseGenerator alloc] initWithCourseGenerationVersion:self.activeContract.courseGenerationVersion];
     return [raceIdentifier isKindOfClass:[NSString class]] &&
            [playerIdentifier isKindOfClass:[NSString class]] &&
            [compatibilityFingerprint isKindOfClass:[NSString class]] &&
            [progressCheckpoint isKindOfClass:[NSNumber class]] && progressCheckpoint.integerValue >= 0 &&
            [score isKindOfClass:[NSNumber class]] && score.integerValue >= 0 &&
-           [crashed isKindOfClass:[NSNumber class]] &&
-           [disconnected isKindOfClass:[NSNumber class]] &&
-           [disconnectDurationSeconds isKindOfClass:[NSNumber class]] && disconnectDurationSeconds.doubleValue >= 0.0 &&
+           [self isBooleanNumber:crashed] &&
+           [self isBooleanNumber:disconnected] &&
+           [disconnectDurationSeconds isKindOfClass:[NSNumber class]] && isfinite(disconnectDurationSeconds.doubleValue) && disconnectDurationSeconds.doubleValue >= 0.0 &&
+           [elapsedTime isKindOfClass:[NSNumber class]] && isfinite(elapsedTime.doubleValue) && elapsedTime.doubleValue >= 0.0 &&
            score.unsignedIntegerValue <= progressCheckpoint.unsignedIntegerValue &&
+           disconnectDurationSeconds.doubleValue <= elapsedTime.doubleValue &&
+           courseGenerator != nil &&
+           progressCheckpoint.unsignedIntegerValue <= [courseGenerator maximumReachableProgressAtElapsedTime:elapsedTime.doubleValue] &&
            [raceIdentifier isEqualToString:self.activeContract.raceIdentifier] &&
-           [playerIdentifier isEqualToString:self.localPlayerIdentifier] &&
+           [playerIdentifier isEqualToString:expectedPlayerIdentifier] &&
            [compatibilityFingerprint isEqualToString:self.activeContract.compatibilityFingerprint];
+}
+
+- (BOOL)isBooleanNumber:(id)value
+{
+    return [value isKindOfClass:[NSNumber class]] &&
+           CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID();
 }
 
 - (BOOL)canChangeReadiness
@@ -555,6 +1073,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
         self.resultVerified = YES;
         self.resultReason = FGChallengeCoordinatorReasonBothDisconnected;
         self.state = FGChallengeCoordinatorStateVoided;
+        self.transport.reconnectAllowed = NO;
         [self recordDiagnosticWithOutcome:FGChallengeOutcomeVoid localRecord:nil];
     }
     return YES;
@@ -588,6 +1107,7 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
     self.resultVerified = NO;
     self.resultReason = reason;
     self.state = FGChallengeCoordinatorStateVerifying;
+    self.transport.reconnectAllowed = NO;
 }
 
 - (NSDictionary<NSString *, id> *)immutableSceneFinalRecordSnapshot:(NSDictionary<NSString *, id> *)finalRecord
