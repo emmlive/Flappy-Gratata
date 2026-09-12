@@ -24,6 +24,8 @@
 	<string>2.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSGKFriendListUsageDescription</key>
+	<string>Choose a Game Center friend for a private Live Challenge race.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

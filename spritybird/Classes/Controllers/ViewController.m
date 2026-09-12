@@ -11,8 +11,13 @@
 #import "Scene.h"
 #import "Score.h"
 #import "BirdHangarViewController.h"
+#import "../../Challenge/FGChallengeCoordinator.h"
+#import "../../Challenge/FGChallengeLobbyViewController.h"
+#import "../../Challenge/FGChallengeRecordStore.h"
+#import "../../Challenge/FGChallengeResultVerifier.h"
+#import "../../Challenge/FGChallengeTransport.h"
 
-@interface ViewController ()
+@interface ViewController () <FGChallengeTransportDelegate>
 @property (strong, nonatomic) SKView *gameView;
 @property (strong, nonatomic) UIView *getReadyView;
 
@@ -21,6 +26,7 @@
 @property (strong, nonatomic) UILabel *currentScore;
 @property (strong, nonatomic) UILabel *bestScoreLabel;
 @property (strong, nonatomic) UIButton *btnHangar;
+@property (strong, nonatomic) UIButton *btnChallengeFriend;
 
 @end
 
@@ -28,6 +34,14 @@
 @property (nonatomic, assign) BOOL shouldPresentGameCenterAfterAuthentication;
 @property (nonatomic, assign) BOOL hasPendingGameCenterScore;
 @property (nonatomic, assign) int64_t pendingGameCenterScore;
+@property (nonatomic, strong) FGChallengeTransport *challengeTransport;
+@property (nonatomic, strong) FGChallengeCoordinator *challengeCoordinator;
+@property (nonatomic, weak) FGChallengeLobbyViewController *challengeLobby;
+@property (nonatomic, assign) BOOL pendingChallengePresentation;
+@property (nonatomic, assign) BOOL pendingIncomingChallengeInvitation;
+@property (nonatomic, copy) NSString *pendingChallengePeerIdentifier;
+- (BOOL)presentChallengeLobbyForIncomingInvitation:(BOOL)incomingInvitation;
+- (void)presentPendingChallengeInvitationIfPossible;
 @end
 
 @implementation ViewController
@@ -337,6 +351,32 @@
              forControlEvents:UIControlEventTouchUpInside];
     [self.gameOverView addSubview:self.btnHangar];
 
+    self.btnChallengeFriend = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnChallengeFriend.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnChallengeFriend.accessibilityLabel = @"Challenge Friend";
+    [self.btnChallengeFriend setTitle:@"CHALLENGE FRIEND"
+                             forState:UIControlStateNormal];
+    [self.btnChallengeFriend setTitleColor:[UIColor whiteColor]
+                                  forState:UIControlStateNormal];
+    self.btnChallengeFriend.titleLabel.font =
+        [UIFont boldSystemFontOfSize:13.0];
+    self.btnChallengeFriend.backgroundColor =
+        [UIColor colorWithRed:0.16
+                        green:0.44
+                         blue:0.62
+                        alpha:0.96];
+    self.btnChallengeFriend.layer.cornerRadius = 11.0;
+    self.btnChallengeFriend.layer.borderWidth = 1.0;
+    self.btnChallengeFriend.layer.borderColor =
+        [UIColor colorWithRed:0.30
+                        green:0.88
+                         blue:1.0
+                        alpha:0.85].CGColor;
+    [self.btnChallengeFriend addTarget:self
+                                 action:@selector(challengeFriendFunc:)
+                       forControlEvents:UIControlEventTouchUpInside];
+    [self.gameOverView addSubview:self.btnChallengeFriend];
+
     UILayoutGuide *safeArea = rootView.safeAreaLayoutGuide;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -452,9 +492,17 @@
 
         [self.btnHangar.topAnchor constraintEqualToAnchor:medalPlate.bottomAnchor
                                                  constant:14.0],
-        [self.btnHangar.centerXAnchor constraintEqualToAnchor:self.gameOverView.centerXAnchor],
-        [self.btnHangar.widthAnchor constraintEqualToConstant:170.0],
-        [self.btnHangar.heightAnchor constraintEqualToConstant:42.0]
+        [self.btnHangar.leadingAnchor constraintEqualToAnchor:self.gameOverView.leadingAnchor
+                                                     constant:20.0],
+        [self.btnHangar.widthAnchor constraintEqualToConstant:132.0],
+        [self.btnHangar.heightAnchor constraintEqualToConstant:42.0],
+
+        [self.btnChallengeFriend.topAnchor constraintEqualToAnchor:medalPlate.bottomAnchor
+                                                           constant:14.0],
+        [self.btnChallengeFriend.trailingAnchor constraintEqualToAnchor:self.gameOverView.trailingAnchor
+                                                               constant:-20.0],
+        [self.btnChallengeFriend.widthAnchor constraintEqualToConstant:132.0],
+        [self.btnChallengeFriend.heightAnchor constraintEqualToConstant:42.0]
     ]];
 }
 
@@ -465,6 +513,9 @@
     self.gameOverView.alpha = 0;
     self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
     self.gameOverView.userInteractionEnabled = YES;
+    self.challengeTransport = [[FGChallengeTransport alloc] init];
+    [self.challengeTransport setPresentationViewController:self];
+    self.challengeTransport.delegate = self;
 }
 - (void)viewDidLayoutSubviews
 {
@@ -483,7 +534,17 @@
 
 -(void)viewWillAppear:(BOOL)animated{
     [super viewWillAppear:animated];
+    [self.challengeTransport setPresentationViewController:self];
+    if (self.presentedViewController == nil) {
+        self.challengeTransport.delegate = self;
+    }
     [self authenticateGameCenterPlayer];
+}
+
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [self presentPendingChallengeInvitationIfPossible];
 }
 
 - (BOOL)prefersStatusBarHidden
@@ -581,6 +642,142 @@
 
 #pragma mark - Bird Hangar
 
+- (void)challengeFriendFunc:(id)sender
+{
+    if (self.presentedViewController != nil) {
+        return;
+    }
+
+    GKLocalPlayer *localPlayer = [GKLocalPlayer localPlayer];
+    if (!localPlayer.isAuthenticated || localPlayer.gamePlayerID.length == 0) {
+        self.pendingChallengePresentation = YES;
+        [self authenticateGameCenterPlayer];
+        return;
+    }
+    [self.challengeTransport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID error:nil];
+    [self presentChallengeLobbyForIncomingInvitation:NO];
+}
+
+- (BOOL)presentChallengeLobbyForIncomingInvitation:(BOOL)incomingInvitation
+{
+    if (self.presentedViewController != nil || !self.challengeTransport.isAuthenticated ||
+        self.challengeTransport.localPlayerIdentifier.length == 0) {
+        return NO;
+    }
+    FGChallengeCoordinator *coordinator = [[FGChallengeCoordinator alloc]
+        initWithTransport:self.challengeTransport
+        resultVerifier:[[FGChallengeResultVerifier alloc] init]
+        recordStore:[[FGChallengeRecordStore alloc] init]
+        localPlayerIdentifier:self.challengeTransport.localPlayerIdentifier];
+    self.challengeCoordinator = coordinator;
+    self.challengeTransport.delegate = self;
+    if (![coordinator activateNetworkSession] ||
+        (incomingInvitation && ![coordinator beginInvitation])) {
+        self.challengeCoordinator = nil;
+        return NO;
+    }
+    FGChallengeLobbyViewController *lobby =
+        [[FGChallengeLobbyViewController alloc]
+            initWithCoordinator:coordinator
+            transport:self.challengeTransport];
+
+    if (lobby == nil) {
+        self.challengeCoordinator = nil;
+        return NO;
+    }
+    self.challengeLobby = lobby;
+    if (self.pendingChallengePeerIdentifier.length > 0) {
+        [(id<FGChallengeTransportDelegate>)coordinator challengeTransport:self.challengeTransport
+                                          didConnectPlayerWithIdentifier:self.pendingChallengePeerIdentifier];
+        self.pendingChallengePeerIdentifier = nil;
+    }
+    lobby.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:lobby
+                       animated:YES
+                     completion:nil];
+    return YES;
+}
+
+- (void)presentPendingChallengeInvitationIfPossible
+{
+    if (!self.pendingIncomingChallengeInvitation || self.challengeLobby != nil ||
+        self.presentedViewController != nil) {
+        return;
+    }
+    if ([self presentChallengeLobbyForIncomingInvitation:YES]) {
+        self.pendingIncomingChallengeInvitation = NO;
+        self.pendingChallengePresentation = NO;
+    }
+}
+
+- (void)showChallengeGameCenterUnavailable
+{
+    if (self.presentedViewController != nil) {
+        return;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Game Center unavailable"
+                                                                   message:@"Challenge Friend requires an available, signed-in Game Center account."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark - Live Challenge transport
+
+- (void)challengeTransportDidAcceptInvitation:(FGChallengeTransport *)transport
+{
+    (void)transport;
+    if (self.challengeLobby != nil) {
+        // The lobby is the transport delegate and has already consumed this
+        // callback before forwarding it here. Do not queue a duplicate invite.
+        return;
+    }
+    self.pendingIncomingChallengeInvitation = YES;
+    [self presentPendingChallengeInvitationIfPossible];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport didConnectPlayerWithIdentifier:(NSString *)playerIdentifier
+{
+    if (self.challengeLobby == nil || self.challengeCoordinator == nil) {
+        self.pendingChallengePeerIdentifier = [playerIdentifier copy];
+    } else {
+        [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
+                                                        didConnectPlayerWithIdentifier:playerIdentifier];
+    }
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+didChangePeerWithIdentifier:(NSString *)playerIdentifier
+                      state:(FGChallengeTransportPeerState)state
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
+                                               didChangePeerWithIdentifier:playerIdentifier
+                                                                     state:state];
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport
+           didReceivePacket:(FGChallengePacket *)packet
+        fromPlayerIdentifier:(NSString *)playerIdentifier
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport
+                                                                    didReceivePacket:packet
+                                                                 fromPlayerIdentifier:playerIdentifier];
+}
+
+- (void)challengeTransportDidBecomeUnavailable:(FGChallengeTransport *)transport error:(NSError *)error
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransportDidBecomeUnavailable:transport error:error];
+    if (self.pendingChallengePresentation) {
+        self.pendingChallengePresentation = NO;
+        [self showChallengeGameCenterUnavailable];
+    }
+}
+
+- (void)challengeTransport:(FGChallengeTransport *)transport didFailWithError:(NSError *)error
+{
+    [(id<FGChallengeTransportDelegate>)self.challengeCoordinator challengeTransport:transport didFailWithError:error];
+}
+
 - (void)hangarFunc:(id)sender
 {
     if (self.presentedViewController != nil) {
@@ -630,12 +827,26 @@
             if (error != nil) {
                 NSLog(@"Game Center authentication error: %@",
                       error.localizedDescription);
+                [self.challengeTransport handleAuthenticationWithPlayerIdentifier:nil error:error];
+                if (self.pendingChallengePresentation) {
+                    self.pendingChallengePresentation = NO;
+                    [self showChallengeGameCenterUnavailable];
+                }
                 return;
             }
 
             if (!localPlayer.isAuthenticated) {
+                [self.challengeTransport handleAuthenticationWithPlayerIdentifier:nil error:nil];
+                if (self.pendingChallengePresentation) {
+                    self.pendingChallengePresentation = NO;
+                    [self showChallengeGameCenterUnavailable];
+                }
                 return;
             }
+
+            [self.challengeTransport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID error:nil];
+
+            [self presentPendingChallengeInvitationIfPossible];
 
             if (self.hasPendingGameCenterScore) {
                 int64_t pendingScore = self.pendingGameCenterScore;
@@ -647,6 +858,10 @@
             if (self.shouldPresentGameCenterAfterAuthentication) {
                 self.shouldPresentGameCenterAfterAuthentication = NO;
                 [self presentGameCenterLeaderboard];
+            }
+            if (self.pendingChallengePresentation) {
+                self.pendingChallengePresentation = NO;
+                [self presentChallengeLobbyForIncomingInvitation:NO];
             }
         });
     };
@@ -729,5 +944,3 @@
 }
 
 @end
-
-
