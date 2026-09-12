@@ -311,6 +311,23 @@ static id FGChallengeImmutableFoundationSnapshot(id value, NSHashTable *activeCo
                                                   MAX(0.0, [date timeIntervalSinceDate:self.localDisconnectDate]));
     }
     if (self.state == FGChallengeCoordinatorStateVerifying) {
+        if (!self.hasPendingForfeit) {
+            if ([self disconnectHasExceededGrace:self.localDisconnectDate atDate:date]) {
+                [self enterForfeitWithOutcome:FGChallengeOutcomeLoss
+                                       reason:FGChallengeCoordinatorReasonLocalForfeit
+                                       atDate:date];
+                return YES;
+            }
+            if ([self disconnectHasExceededGrace:self.peerDisconnectDate atDate:date]) {
+                [self enterForfeitWithOutcome:FGChallengeOutcomeWin
+                                       reason:FGChallengeCoordinatorReasonRemoteForfeit
+                                       atDate:date];
+                return YES;
+            }
+            if (self.localDisconnectDate != nil || self.peerDisconnectDate != nil) {
+                return YES;
+            }
+        }
         if (self.verificationDeadline != nil &&
             [date compare:self.verificationDeadline] != NSOrderedAscending) {
             [self finishUnverifiedVerificationTimeout];

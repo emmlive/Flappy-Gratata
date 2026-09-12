@@ -1486,17 +1486,30 @@ static void FGTestDisconnectDuringVerificationDoesNotCancelMatch(void)
     FGChallengeCoordinator *coordinator = FGCoordinator(NULL);
     FGChallengeRaceContract *contract = FGCoordinatorContract(@"race-verifying-disconnect");
     NSDate *crashDate = [contract.synchronizedStartDate dateByAddingTimeInterval:10.0];
-    id<FGChallengeTransportDelegate> transportSink = (id<FGChallengeTransportDelegate>)coordinator;
+    NSDate *verificationStart = [crashDate dateByAddingTimeInterval:3.0];
+    NSDate *disconnectDate = [verificationStart dateByAddingTimeInterval:4.0];
+    NSDate *oldVerificationDeadline = [verificationStart dateByAddingTimeInterval:5.0];
 
     FGRequire(FGCoordinatorPrepareRace(coordinator, contract) &&
               [coordinator recordLocalCrashAtDate:crashDate] &&
-              [coordinator advanceToDate:[crashDate dateByAddingTimeInterval:3.0]],
+              [coordinator advanceToDate:verificationStart],
               @"disconnect-during-verification race reaches verification");
-    [transportSink challengeTransport:nil
-          didChangePeerWithIdentifier:@"player-bravo"
-                                state:FGChallengeTransportPeerStateDisconnected];
-    FGRequire(coordinator.state == FGChallengeCoordinatorStateVerifying,
-              @"a disconnect during verification preserves terminal result handling");
+
+    FGRequire([coordinator recordPeerDisconnectedAtDate:disconnectDate],
+              @"peer disconnect during verification is accepted");
+
+    FGRequire([coordinator advanceToDate:oldVerificationDeadline] &&
+              coordinator.state == FGChallengeCoordinatorStateVerifying,
+              @"the pre-existing verification deadline cannot cut short disconnect grace");
+
+    FGRequire([coordinator advanceToDate:[disconnectDate dateByAddingTimeInterval:4.999]] &&
+              coordinator.state == FGChallengeCoordinatorStateVerifying,
+              @"peer remains inside reconnect grace before five seconds");
+
+    FGRequire([coordinator advanceToDate:[disconnectDate dateByAddingTimeInterval:5.0]] &&
+              coordinator.state == FGChallengeCoordinatorStateVerifying &&
+              [coordinator.resultReason isEqualToString:@"remote-reconnect-grace-expired"],
+              @"exactly five seconds during verification enters canonical remote-forfeit verification");
 }
 
 static void FGTestForfeitFinalCarriesObservedDisconnect(void)
