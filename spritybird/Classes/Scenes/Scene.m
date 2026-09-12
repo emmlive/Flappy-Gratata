@@ -142,6 +142,15 @@ static bool wasted = NO;
     back = [SKScrollingNode scrollingNodeWithImageNamed:@"back" inContainerWidth:WIDTH(self)];
     [back setScrollingSpeed:BACK_SCROLLING_SPEED];
     [back setAnchorPoint:CGPointZero];
+
+    CGFloat backgroundHeight = HEIGHT(self);
+    for (SKNode *backgroundNode in back.children) {
+        if ([backgroundNode isKindOfClass:[SKSpriteNode class]]) {
+            SKSpriteNode *backgroundSprite = (SKSpriteNode *)backgroundNode;
+            backgroundSprite.size = CGSizeMake(backgroundSprite.size.width, backgroundHeight);
+        }
+    }
+
     [back setPhysicsBody:[SKPhysicsBody bodyWithEdgeLoopFromRect:self.frame]];
     back.physicsBody.categoryBitMask = backBitMask;
     back.physicsBody.contactTestBitMask = birdBitMask;

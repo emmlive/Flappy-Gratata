@@ -4,6 +4,7 @@
 #import "FGChallengeCourseGenerator.h"
 #import "FGChallengeGhostRenderer.h"
 #import "FGChallengePacket.h"
+#import "FGChallengeRaceContract.h"
 #import "FGChallengeRaceScene.h"
 #import "FGChallengeResultsViewController.h"
 #import "FGChallengeResultVerifier.h"
@@ -487,15 +488,16 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
                         forKeyPath:@"lastAcceptedRemotePacket"
                            options:NSKeyValueObservingOptionNew
                            context:FGChallengeLobbyCoordinatorObservationContext];
-    [self.transport addObserver:self
+    NSObject *transportObject = (NSObject *)self.transport;
+    [transportObject addObserver:self
                       forKeyPath:@"available"
                          options:NSKeyValueObservingOptionNew
                          context:FGChallengeLobbyTransportObservationContext];
-    [self.transport addObserver:self
+    [transportObject addObserver:self
                       forKeyPath:@"authenticated"
                          options:NSKeyValueObservingOptionNew
                          context:FGChallengeLobbyTransportObservationContext];
-    [self.transport addObserver:self
+    [transportObject addObserver:self
                       forKeyPath:@"localPlayerIdentifier"
                          options:NSKeyValueObservingOptionNew
                          context:FGChallengeLobbyTransportObservationContext];
@@ -511,9 +513,10 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
     [self.coordinator removeObserver:self forKeyPath:@"state" context:FGChallengeLobbyCoordinatorObservationContext];
     [self.coordinator removeObserver:self forKeyPath:@"peerPlayerIdentifier" context:FGChallengeLobbyCoordinatorObservationContext];
     [self.coordinator removeObserver:self forKeyPath:@"lastAcceptedRemotePacket" context:FGChallengeLobbyCoordinatorObservationContext];
-    [self.transport removeObserver:self forKeyPath:@"available" context:FGChallengeLobbyTransportObservationContext];
-    [self.transport removeObserver:self forKeyPath:@"authenticated" context:FGChallengeLobbyTransportObservationContext];
-    [self.transport removeObserver:self forKeyPath:@"localPlayerIdentifier" context:FGChallengeLobbyTransportObservationContext];
+    NSObject *transportObject = (NSObject *)self.transport;
+    [transportObject removeObserver:self forKeyPath:@"available" context:FGChallengeLobbyTransportObservationContext];
+    [transportObject removeObserver:self forKeyPath:@"authenticated" context:FGChallengeLobbyTransportObservationContext];
+    [transportObject removeObserver:self forKeyPath:@"localPlayerIdentifier" context:FGChallengeLobbyTransportObservationContext];
     self.observingChallengeState = NO;
 }
 
