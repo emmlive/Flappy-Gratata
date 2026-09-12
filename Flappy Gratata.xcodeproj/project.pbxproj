@@ -813,6 +813,7 @@
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";
 				INFOPLIST_FILE = "spritybird/Supporting Files/Flappy Gratata-Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathiasnilles.FlappyGratata;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -832,6 +833,7 @@
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";
 				INFOPLIST_FILE = "spritybird/Supporting Files/Flappy Gratata-Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathiasnilles.FlappyGratata;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
