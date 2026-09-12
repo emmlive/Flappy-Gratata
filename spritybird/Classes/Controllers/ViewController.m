@@ -527,7 +527,7 @@
 
     scene = [Scene sceneWithSize:self.gameView.bounds.size];
     scene.scaleMode = SKSceneScaleModeAspectFill;
-    scene.delegate = self;
+    scene.gameDelegate = self;
 
     [self.gameView presentScene:scene];
 }
