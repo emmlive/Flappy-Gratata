@@ -815,6 +815,7 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
     localPlayer.authenticateHandler =
         ^(UIViewController *viewController, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            GKLocalPlayer *authenticatedPlayer = [GKLocalPlayer localPlayer];
             if (viewController != nil) {
                 if (self.presentedViewController == nil) {
                     [self presentViewController:viewController
@@ -835,7 +836,7 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
                 return;
             }
 
-            if (!localPlayer.isAuthenticated) {
+            if (!authenticatedPlayer.isAuthenticated) {
                 [self.challengeTransport handleAuthenticationWithPlayerIdentifier:nil error:nil];
                 if (self.pendingChallengePresentation) {
                     self.pendingChallengePresentation = NO;
@@ -844,7 +845,7 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
                 return;
             }
 
-            [self.challengeTransport handleAuthenticationWithPlayerIdentifier:localPlayer.gamePlayerID error:nil];
+            [self.challengeTransport handleAuthenticationWithPlayerIdentifier:authenticatedPlayer.gamePlayerID error:nil];
 
             [self presentPendingChallengeInvitationIfPossible];
 
