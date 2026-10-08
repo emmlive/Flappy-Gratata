@@ -60,9 +60,9 @@ TEST_ROOT_GROUP = "spritybird Tests"
 CHALLENGE_GROUP = "Challenge"
 CHALLENGE_TESTS_GROUP = "Challenge Tests"
 PROTECTED_CLASSIC_HASHES = {
-    REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "50c6f4542d0a849f1122dcee726280bd867b049fd651dbd8b5e0df4ade2bc4f9",
+    REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "2ff0d407d718ec2219a64cd245aacdbc2ec02616e96baf9ebd573520ef7c34d8",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
-    REPOSITORY_ROOT / "spritybird/Classes/Scenes/SKScrollingNode.m": "5594f59de2c920747012fc977d2bf62aea9d4ffb0bb64e475785a2511d5c435f",
+    REPOSITORY_ROOT / "spritybird/Classes/Scenes/SKScrollingNode.m": "14a87a21fcca8a3b9b3454c1477fbe0a87125f69e3ff4ec8b0865ae27630f402",
     REPOSITORY_ROOT / "spritybird/Classes/Models/Score.m": "3276c37c32479aa793b940a8b218787f6753cd9a9e74c03dbc7746bf0aad2ac4",
 }
 
@@ -521,6 +521,11 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn('forKeyPath:@"lastAcceptedRemotePacket"', implementation)
         self.assertIn("exitChallengeToHome", implementation)
         self.assertIn("results.exitToHomeHandler", implementation)
+        self.assertIn('actionButtonWithTitle:@"Exit Challenge" accent:NO', implementation)
+        self.assertRegex(
+            implementation,
+            r"\[exitButton addTarget:self\s+action:@selector\(exitChallengeToHome\)\s+forControlEvents:UIControlEventTouchUpInside\]",
+        )
         exit_action = re.search(
             r"-\s*\(void\)exitChallengeToHome\s*\{(?P<body>.*?)(?=\n-\s*\()",
             implementation,
@@ -549,6 +554,7 @@ class FGChallengeSourceContractTests(unittest.TestCase):
             "Ready",
             "Not Ready",
             "Rules",
+            "Exit Challenge",
             "Update required to race this friend.",
             "Game Center unavailable.",
             "Connection lost before start. Lobby closed without a result.",
