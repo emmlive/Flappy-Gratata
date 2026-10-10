@@ -52,6 +52,7 @@
 		CEBA89A518EBA8FC009B4979 /* gameCenterIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CEBA89A318EBA8FC009B4979 /* gameCenterIcon@2x.png */; };
 		CEE995EB18E604D500248B08 /* GameOverSound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CEE995E818E604D500248B08 /* GameOverSound.mp3 */; };
 		CEE995EC18E604D500248B08 /* JumpSound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CEE995E918E604D500248B08 /* JumpSound.mp3 */; };
+		CEE995F518E604D500248B08 /* JumpSound.caf in Resources */ = {isa = PBXBuildFile; fileRef = CEE995F418E604D500248B08 /* JumpSound.caf */; };
 		CEE995ED18E604D500248B08 /* PointSound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CEE995EA18E604D500248B08 /* PointSound.mp3 */; };
 		CEE995EF18E6055900248B08 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEE995EE18E6055900248B08 /* AudioToolbox.framework */; };
 		CEE995F318E6064C00248B08 /* appController.m in Sources */ = {isa = PBXBuildFile; fileRef = CEE995F218E6064C00248B08 /* appController.m */; };
@@ -167,6 +168,7 @@
 		CEBA89A318EBA8FC009B4979 /* gameCenterIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "gameCenterIcon@2x.png"; sourceTree = "<group>"; };
 		CEE995E818E604D500248B08 /* GameOverSound.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = GameOverSound.mp3; sourceTree = "<group>"; };
 		CEE995E918E604D500248B08 /* JumpSound.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = JumpSound.mp3; sourceTree = "<group>"; };
+		CEE995F418E604D500248B08 /* JumpSound.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = JumpSound.caf; sourceTree = "<group>"; };
 		CEE995EA18E604D500248B08 /* PointSound.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = PointSound.mp3; sourceTree = "<group>"; };
 		CEE995EE18E6055900248B08 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		CEE995F118E6064C00248B08 /* appController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = appController.h; sourceTree = "<group>"; };
@@ -511,6 +513,7 @@
 			children = (
 				CEE995E818E604D500248B08 /* GameOverSound.mp3 */,
 				CEE995E918E604D500248B08 /* JumpSound.mp3 */,
+				CEE995F418E604D500248B08 /* JumpSound.caf */,
 				CEE995EA18E604D500248B08 /* PointSound.mp3 */,
 			);
 			path = Sounds;
@@ -641,6 +644,7 @@
 				CEBA899D18EBA7CC009B4979 /* game_over@2x.png in Resources */,
 				823C184618B3E57F00C9BD2F /* get_ready@2x.png in Resources */,
 				CEE995EC18E604D500248B08 /* JumpSound.mp3 in Resources */,
+				CEE995F518E604D500248B08 /* JumpSound.caf in Resources */,
 				82457DBD18B2C3490042CF82 /* bird_3@2x.png in Resources */,
 				A8D3000418B2C3490042CF82 /* bird_neon_1@2x.png in Resources */,
 				A8D3000518B2C3490042CF82 /* bird_neon_2@2x.png in Resources */,
@@ -809,6 +813,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 3ZC7625UVZ;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";
@@ -829,6 +834,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 3ZC7625UVZ;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";
