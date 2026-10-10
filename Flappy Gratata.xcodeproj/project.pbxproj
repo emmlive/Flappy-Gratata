@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F16C00000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F16C00000000000000000002 /* PrivacyInfo.xcprivacy */; };
 		821A755618AD616C00B376D5 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A218A6F53400FEBE9B /* AppDelegate.m */; };
 		821A755718AD617800B376D5 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A818A6F53400FEBE9B /* ViewController.m */; };
 		A8D5000318B132B40099A4FE /* BirdHangarViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A8D5000218B132B40099A4FE /* BirdHangarViewController.m */; };
@@ -107,6 +108,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		F16C00000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		18AD6FA019018AA800FD6B65 /* AppSpecificValues.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppSpecificValues.h; sourceTree = "<group>"; };
 		823C184318B3E57F00C9BD2F /* taptap@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "taptap@2x.png"; sourceTree = "<group>"; };
 		823C184418B3E57F00C9BD2F /* get_ready@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "get_ready@2x.png"; sourceTree = "<group>"; };
@@ -359,6 +361,7 @@
 			isa = PBXGroup;
 			children = (
 				82C6A09A18A6F53400FEBE9B /* Flappy Gratata-Info.plist */,
+				F16C00000000000000000002 /* PrivacyInfo.xcprivacy */,
 				82C6A09B18A6F53400FEBE9B /* InfoPlist.strings */,
 				82C6A09E18A6F53400FEBE9B /* main.m */,
 				82C6A0A018A6F53400FEBE9B /* Flappy Gratata-Prefix.pch */,
@@ -650,6 +653,7 @@
 				A8D3000518B2C3490042CF82 /* bird_neon_2@2x.png in Resources */,
 				A8D3000618B2C3490042CF82 /* bird_neon_3@2x.png in Resources */,
 				CEE995EB18E604D500248B08 /* GameOverSound.mp3 in Resources */,
+				F16C00000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
 				82457DBE18B2C3490042CF82 /* floor@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
