@@ -27,6 +27,7 @@
 @implementation Scene{
     SKScrollingNode * floor;
     SKScrollingNode * back;
+    SKSpriteNode * cloudSurfaceVisual;
     SKLabelNode * scoreLabel;
     BirdNode * bird;
     
@@ -151,9 +152,6 @@ static bool wasted = NO;
         }
     }
 
-    [back setPhysicsBody:[SKPhysicsBody bodyWithEdgeLoopFromRect:self.frame]];
-    back.physicsBody.categoryBitMask = backBitMask;
-    back.physicsBody.contactTestBitMask = birdBitMask;
     [self addChild:back];
 }
 
@@ -178,9 +176,24 @@ static bool wasted = NO;
     [floor setScrollingSpeed:FLOOR_SCROLLING_SPEED];
     [floor setAnchorPoint:CGPointZero];
     [floor setName:@"floor"];
-    [floor setPhysicsBody:[SKPhysicsBody bodyWithEdgeLoopFromRect:floor.frame]];
-    floor.physicsBody.categoryBitMask = floorBitMask;
-    floor.physicsBody.contactTestBitMask = birdBitMask;
+
+    CGFloat cloudSurfaceY =
+        MAX(44.0, MIN(64.0, HEIGHT(self) * 0.065));
+
+    cloudSurfaceVisual =
+        [SKSpriteNode spriteNodeWithColor:
+            [UIColor colorWithRed:0.10
+                            green:0.24
+                             blue:0.42
+                            alpha:0.58]
+                              size:CGSizeMake(WIDTH(self), cloudSurfaceY)];
+    cloudSurfaceVisual.anchorPoint = CGPointMake(0.5, 1.0);
+    cloudSurfaceVisual.position =
+        CGPointMake(CGRectGetMidX(self.frame), cloudSurfaceY);
+    [cloudSurfaceVisual setName:@"cloudSurfaceVisual"];
+    cloudSurfaceVisual.zPosition = 0.35;
+    [self addChild:cloudSurfaceVisual];
+
     [self addChild:floor];
 }
 
@@ -264,6 +277,7 @@ static bool wasted = NO;
     [bird update:currentTime];
     [self updateObstacles:currentTime];
     [self updateScore:currentTime];
+    [self handleBelowScreenFailSafe];
 }
 
 
@@ -302,13 +316,13 @@ static bool wasted = NO;
     float minBottomPosY = HEIGHT(floor) + OBSTACLE_MIN_HEIGHT - HEIGHT(self);
     float bottomPosY = minBottomPosY + variance;
     bottomPipe.position = CGPointMake(xPos,bottomPosY);
-    bottomPipe.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(0,0, WIDTH(bottomPipe) , HEIGHT(bottomPipe))];
+    bottomPipe.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(6.5, 522.0, 76.5, 43.0)];
     bottomPipe.physicsBody.categoryBitMask = blockBitMask;
     bottomPipe.physicsBody.contactTestBitMask = birdBitMask;
     
     // Top pipe placement
     topPipe.position = CGPointMake(xPos,bottomPosY + HEIGHT(bottomPipe) + VERTICAL_GAP_SIZE);
-    topPipe.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(0,0, WIDTH(topPipe), HEIGHT(topPipe))];
+    topPipe.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(8.0, 0.0, 76.5, 38.5)];
     
     topPipe.physicsBody.categoryBitMask = blockBitMask;
     topPipe.physicsBody.contactTestBitMask = birdBitMask;
@@ -337,17 +351,37 @@ static bool wasted = NO;
 
 #pragma mark - Physics
 
+- (void)handleBelowScreenFailSafe
+{
+    if (!bird.physicsBody || wasted || _gamePaused) {
+        return;
+    }
+
+    CGFloat bottomFailSafeMargin = 8.0;
+
+    if (CGRectGetMaxY(bird.frame) < -bottomFailSafeMargin) {
+        [self pauseGame];
+
+        if([self.gameDelegate respondsToSelector:@selector(eventPause)]){
+            [self.gameDelegate eventPause];
+        }
+    }
+}
+
 - (void)didBeginContact:(SKPhysicsContact *)contact
 {
     if(wasted || _gamePaused){ return; }
 
-    [self pauseGame];
-    
-    if([self.gameDelegate respondsToSelector:@selector(eventPause)]){
-        [self.gameDelegate eventPause];
+    uint32_t collisionMask =
+        contact.bodyA.categoryBitMask | contact.bodyB.categoryBitMask;
+
+    if ((collisionMask & blockBitMask) != 0) {
+        [self pauseGame];
+
+        if([self.gameDelegate respondsToSelector:@selector(eventPause)]){
+            [self.gameDelegate eventPause];
+        }
+        return;
     }
-    
-    //self.lastPhysicsContact = contact;
-    
 }
 @end
