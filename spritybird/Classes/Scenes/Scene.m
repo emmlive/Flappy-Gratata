@@ -20,6 +20,10 @@
 #define OBSTACLE_MIN_HEIGHT 60
 #define OBSTACLE_INTERVAL_SPACE 130
 
+#define SKY_BRAKE_DURATION 1.6
+#define SKY_BRAKE_COOLDOWN 8.0
+#define SKY_BRAKE_DOUBLE_TOUCH_WINDOW 0.28
+
 @interface Scene ()
 @property (nonatomic, strong) SKPhysicsContact *lastPhysicsContact;
 @end
@@ -29,6 +33,8 @@
     SKScrollingNode * back;
     SKSpriteNode * cloudSurfaceVisual;
     SKLabelNode * scoreLabel;
+    SKLabelNode * skyBrakeIndicator;
+    SKShapeNode * skyBrakeEffect;
     BirdNode * bird;
     
     int nbObstacles;
@@ -36,6 +42,14 @@
     NSMutableArray * bottomPipes;
     
     BOOL _gamePaused;
+
+    BOOL skyBrakeActive;
+    BOOL skyBrakeTouchHeld;
+    UITouch * skyBrakeActivationTouch;
+    NSTimeInterval skyBrakeActivatedAt;
+    NSTimeInterval skyBrakeCooldownUntil;
+    NSTimeInterval skyBrakeCurrentTime;
+    NSTimeInterval skyBrakePreviousTouchDownAt;
 }
 
 static bool wasted = NO;
@@ -54,15 +68,29 @@ static bool wasted = NO;
     BOOL wastedStatus = wasted;
     
     // Reinit
+    if (bird.physicsBody) {
+        bird.physicsBody.affectedByGravity = YES;
+    }
+
     wasted = NO;
     _gamePaused = NO;
     self.score = 0;
+
+    skyBrakeActive = NO;
+    skyBrakeTouchHeld = NO;
+    skyBrakeActivationTouch = nil;
+    skyBrakeEffect = nil;
+    skyBrakeActivatedAt = 0;
+    skyBrakeCooldownUntil = 0;
+    skyBrakeCurrentTime = 0;
+    skyBrakePreviousTouchDownAt = 0;
     
     [self removeAllChildren];
     
     [self createBackground];
     [self createFloor];
     [self createScore];
+    [self createSkyBrakeIndicator];
     [self createObstacles];
     [self createBird];
     
@@ -75,6 +103,7 @@ static bool wasted = NO;
 }
 
 - (void) endGame {
+    [self deactivateSkyBrake];
     wasted = YES;
     _gamePaused = NO;
     [Score registerScore:self.score];
@@ -85,6 +114,7 @@ static bool wasted = NO;
 }
 
 - (void) pauseGame {
+    [self deactivateSkyBrake];
     _gamePaused = YES;
 }
 
@@ -129,6 +159,7 @@ static bool wasted = NO;
     [self createBackground];
     [self createFloor];
     [self createScore];
+    [self createSkyBrakeIndicator];
     [self createObstacles];
     [self createBird];
     
@@ -169,6 +200,25 @@ static bool wasted = NO;
     [self addChild:scoreLabel];
 }
 
+- (void)createSkyBrakeIndicator
+{
+    skyBrakeIndicator =
+        [SKLabelNode labelNodeWithFontNamed:@"Futura-Medium"];
+
+    skyBrakeIndicator.fontSize = 16.0;
+    skyBrakeIndicator.horizontalAlignmentMode =
+        SKLabelHorizontalAlignmentModeRight;
+    skyBrakeIndicator.verticalAlignmentMode =
+        SKLabelVerticalAlignmentModeCenter;
+    skyBrakeIndicator.position =
+        CGPointMake(WIDTH(self) - 16.0, HEIGHT(self) - 34.0);
+    skyBrakeIndicator.zPosition = 20.0;
+    skyBrakeIndicator.alpha = 0.88;
+    skyBrakeIndicator.text = @"READY";
+
+    [self addChild:skyBrakeIndicator];
+}
+
 
 - (void)createFloor
 {
@@ -203,6 +253,34 @@ static bool wasted = NO;
     [bird setPosition:CGPointMake(100, CGRectGetMidY(self.frame))];
     [bird setName:@"bird"];
     [self addChild:bird];
+    [self createSkyBrakeEffect];
+}
+
+- (void)createSkyBrakeEffect
+{
+    skyBrakeEffect =
+        [SKShapeNode shapeNodeWithCircleOfRadius:34.0];
+
+    skyBrakeEffect.strokeColor =
+        [UIColor colorWithRed:0.50
+                        green:0.88
+                         blue:1.00
+                        alpha:0.95];
+
+    skyBrakeEffect.fillColor =
+        [UIColor colorWithRed:0.30
+                        green:0.72
+                         blue:1.00
+                        alpha:0.12];
+
+    skyBrakeEffect.lineWidth = 2.5;
+    skyBrakeEffect.glowWidth = 9.0;
+    skyBrakeEffect.zPosition = 1.0;
+    skyBrakeEffect.alpha = 0.0;
+    skyBrakeEffect.hidden = YES;
+    [skyBrakeEffect setName:@"skyBrakeEffect"];
+
+    [bird addChild:skyBrakeEffect];
 }
 
 - (void) createObstacles
@@ -249,14 +327,62 @@ static bool wasted = NO;
         [self resumeGame];
     }
     else{
+        UITouch *touch = [touches anyObject];
+        NSTimeInterval touchDownAt = touch.timestamp;
+        NSTimeInterval timeSincePreviousTouch =
+            touchDownAt - skyBrakePreviousTouchDownAt;
+
+        BOOL isSecondTouchInWindow =
+            skyBrakePreviousTouchDownAt > 0 &&
+            timeSincePreviousTouch > 0 &&
+            timeSincePreviousTouch <= SKY_BRAKE_DOUBLE_TOUCH_WINDOW;
+
+        skyBrakePreviousTouchDownAt = touchDownAt;
+
+        if (bird.physicsBody &&
+            isSecondTouchInWindow &&
+            !skyBrakeActive &&
+            skyBrakeCurrentTime >= skyBrakeCooldownUntil) {
+            skyBrakeTouchHeld = YES;
+            skyBrakeActivationTouch = touch;
+            [self activateSkyBrake];
+            return;
+        }
+
+        if (skyBrakeActive) {
+            skyBrakeTouchHeld = YES;
+            return;
+        }
+
         if (!bird.physicsBody) {
             [bird startPlaying];
             if([self.gameDelegate respondsToSelector:@selector(eventPlay)]){
                 [self.gameDelegate eventPlay];
             }
         }
+
         [bird bounce];
         [APP_CTRL playJumpSound];
+    }
+}
+
+- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
+{
+    if (skyBrakeActive &&
+        skyBrakeActivationTouch &&
+        [touches containsObject:skyBrakeActivationTouch]) {
+        skyBrakeTouchHeld = NO;
+        [self deactivateSkyBrake];
+    }
+}
+
+- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event
+{
+    if (skyBrakeActive &&
+        skyBrakeActivationTouch &&
+        [touches containsObject:skyBrakeActivationTouch]) {
+        skyBrakeTouchHeld = NO;
+        [self deactivateSkyBrake];
     }
 }
 
@@ -274,6 +400,10 @@ static bool wasted = NO;
     [floor update:currentTime];
     
     // Other
+    skyBrakeCurrentTime = currentTime;
+    [self updateSkyBrake:currentTime];
+    [self updateSkyBrakeIndicator:currentTime];
+    [self updateSkyBrakeEffect:currentTime];
     [bird update:currentTime];
     [self updateObstacles:currentTime];
     [self updateScore:currentTime];
@@ -334,9 +464,17 @@ static bool wasted = NO;
     for(int i=0;i<nbObstacles;i++){
         
         SKSpriteNode * topPipe = (SKSpriteNode *) topPipes[i];
+        SKSpriteNode * bottomPipe = (SKSpriteNode *) bottomPipes[i];
+
+        CGFloat gapBottomY = Y(bottomPipe) + HEIGHT(bottomPipe);
+        CGFloat gapTopY = Y(topPipe);
+        BOOL birdPassedGap =
+            bird.position.y > gapBottomY &&
+            bird.position.y < gapTopY;
         
         // Score, adapt font size
-        if(X(topPipe) + WIDTH(topPipe)/2 > bird.position.x &&
+        if(birdPassedGap &&
+           X(topPipe) + WIDTH(topPipe)/2 > bird.position.x &&
            X(topPipe) + WIDTH(topPipe)/2 < bird.position.x + FLOOR_SCROLLING_SPEED){
             self.score +=1;
             scoreLabel.text = [NSString stringWithFormat:@"%lu",(long)self.score];
@@ -347,6 +485,132 @@ static bool wasted = NO;
             }
         }
     }
+}
+
+#pragma mark - Sky Brake
+
+- (void)updateSkyBrakeEffect:(NSTimeInterval)currentTime
+{
+    if (!skyBrakeEffect) {
+        return;
+    }
+
+    if (!skyBrakeActive) {
+        skyBrakeEffect.hidden = YES;
+        skyBrakeEffect.alpha = 0.0;
+        [skyBrakeEffect removeAllActions];
+        skyBrakeEffect.xScale = 1.0;
+        skyBrakeEffect.yScale = 1.0;
+        return;
+    }
+
+    skyBrakeEffect.hidden = NO;
+    skyBrakeEffect.alpha = 0.92;
+
+    if (![skyBrakeEffect actionForKey:@"skyBrakePulse"]) {
+        SKAction *pulseOut =
+            [SKAction group:@[
+                [SKAction scaleTo:1.16 duration:0.24],
+                [SKAction fadeAlphaTo:0.58 duration:0.24]
+            ]];
+
+        SKAction *pulseIn =
+            [SKAction group:@[
+                [SKAction scaleTo:0.96 duration:0.24],
+                [SKAction fadeAlphaTo:0.92 duration:0.24]
+            ]];
+
+        SKAction *pulse =
+            [SKAction repeatActionForever:
+                [SKAction sequence:@[pulseOut, pulseIn]]];
+
+        [skyBrakeEffect runAction:pulse
+                          withKey:@"skyBrakePulse"];
+    }
+}
+
+- (void)updateSkyBrakeIndicator:(NSTimeInterval)currentTime
+{
+    if (!skyBrakeIndicator) {
+        return;
+    }
+
+    if (skyBrakeActive) {
+        skyBrakeIndicator.text = @"ACTIVE";
+        skyBrakeIndicator.alpha = 1.0;
+        return;
+    }
+
+    NSTimeInterval remaining = skyBrakeCooldownUntil - currentTime;
+
+    if (remaining > 0) {
+        skyBrakeIndicator.text =
+            [NSString stringWithFormat:@"COOLDOWN %.1fs", remaining];
+        skyBrakeIndicator.alpha = 0.55;
+        return;
+    }
+
+    skyBrakeIndicator.text = @"READY";
+    skyBrakeIndicator.alpha = 0.88;
+}
+
+- (void)activateSkyBrake
+{
+    if (wasted ||
+        _gamePaused ||
+        !bird.physicsBody ||
+        skyBrakeActive ||
+        skyBrakeCurrentTime < skyBrakeCooldownUntil) {
+        return;
+    }
+
+    skyBrakeActive = YES;
+    skyBrakeActivatedAt = skyBrakeCurrentTime;
+    bird.physicsBody.velocity =
+        CGVectorMake(bird.physicsBody.velocity.dx, 0);
+    bird.physicsBody.affectedByGravity = NO;
+}
+
+- (void)deactivateSkyBrake
+{
+    if (bird.physicsBody) {
+        bird.physicsBody.affectedByGravity = YES;
+    }
+
+    if (skyBrakeActive) {
+        skyBrakeCooldownUntil =
+            skyBrakeCurrentTime + SKY_BRAKE_COOLDOWN;
+    }
+
+    skyBrakeActive = NO;
+    skyBrakeTouchHeld = NO;
+    skyBrakeActivationTouch = nil;
+
+    if (skyBrakeEffect) {
+        skyBrakeEffect.hidden = YES;
+        skyBrakeEffect.alpha = 0.0;
+        [skyBrakeEffect removeAllActions];
+        skyBrakeEffect.xScale = 1.0;
+        skyBrakeEffect.yScale = 1.0;
+    }
+}
+
+- (void)updateSkyBrake:(NSTimeInterval)currentTime
+{
+    if (!skyBrakeActive) {
+        return;
+    }
+
+    if (!bird.physicsBody ||
+        !skyBrakeTouchHeld ||
+        currentTime - skyBrakeActivatedAt >= SKY_BRAKE_DURATION) {
+        [self deactivateSkyBrake];
+        return;
+    }
+
+    bird.physicsBody.velocity =
+        CGVectorMake(bird.physicsBody.velocity.dx, 0);
+    bird.physicsBody.affectedByGravity = NO;
 }
 
 #pragma mark - Physics

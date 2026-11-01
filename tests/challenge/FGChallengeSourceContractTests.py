@@ -60,7 +60,7 @@ TEST_ROOT_GROUP = "spritybird Tests"
 CHALLENGE_GROUP = "Challenge"
 CHALLENGE_TESTS_GROUP = "Challenge Tests"
 PROTECTED_CLASSIC_HASHES = {
-    REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "f45807deed00be8a08c28acf5b56e658f94d54b46efaaa3f952d5dc50184a560",
+    REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "a778abfcd164aa9eeb55e7a9ff5baf4b13aa4bdf6dff64525762acaa1af18183",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/SKScrollingNode.m": "14a87a21fcca8a3b9b3454c1477fbe0a87125f69e3ff4ec8b0865ae27630f402",
     REPOSITORY_ROOT / "spritybird/Classes/Models/Score.m": "3276c37c32479aa793b940a8b218787f6753cd9a9e74c03dbc7746bf0aad2ac4",
