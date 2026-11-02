@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F17A00000000000000000201 /* FGGameplayObstacle.m in Sources */ = {isa = PBXBuildFile; fileRef = F17A00000000000000000102 /* FGGameplayObstacle.m */; };
+		F17A00000000000000000202 /* FGCloudGateObstacle.m in Sources */ = {isa = PBXBuildFile; fileRef = F17A00000000000000000104 /* FGCloudGateObstacle.m */; };
+		F17A00000000000000000203 /* FGObstacleDirector.m in Sources */ = {isa = PBXBuildFile; fileRef = F17A00000000000000000106 /* FGObstacleDirector.m */; };
 		F16C00000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F16C00000000000000000002 /* PrivacyInfo.xcprivacy */; };
 		821A755618AD616C00B376D5 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A218A6F53400FEBE9B /* AppDelegate.m */; };
 		821A755718AD617800B376D5 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A818A6F53400FEBE9B /* ViewController.m */; };
@@ -108,6 +111,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		F17A00000000000000000101 /* FGGameplayObstacle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGGameplayObstacle.h; sourceTree = "<group>"; };
+		F17A00000000000000000102 /* FGGameplayObstacle.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGGameplayObstacle.m; sourceTree = "<group>"; };
+		F17A00000000000000000103 /* FGCloudGateObstacle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGCloudGateObstacle.h; sourceTree = "<group>"; };
+		F17A00000000000000000104 /* FGCloudGateObstacle.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGCloudGateObstacle.m; sourceTree = "<group>"; };
+		F17A00000000000000000105 /* FGObstacleDirector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGObstacleDirector.h; sourceTree = "<group>"; };
+		F17A00000000000000000106 /* FGObstacleDirector.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGObstacleDirector.m; sourceTree = "<group>"; };
 		F16C00000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		18AD6FA019018AA800FD6B65 /* AppSpecificValues.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppSpecificValues.h; sourceTree = "<group>"; };
 		823C184318B3E57F00C9BD2F /* taptap@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "taptap@2x.png"; sourceTree = "<group>"; };
@@ -447,6 +456,7 @@
 				82C6A0D318A790C000FEBE9B /* Controllers */,
 				82C6A0D418A790C800FEBE9B /* Scenes */,
 				82C6A0D718A790FE00FEBE9B /* Helpers */,
+				F17A00000000000000000001 /* Gameplay */,
 			);
 			path = Classes;
 			sourceTree = "<group>";
@@ -531,6 +541,20 @@
 			path = AppController;
 			sourceTree = "<group>";
 		};
+		F17A00000000000000000001 /* Gameplay */ = {
+			isa = PBXGroup;
+			children = (
+				F17A00000000000000000101 /* FGGameplayObstacle.h */,
+				F17A00000000000000000102 /* FGGameplayObstacle.m */,
+				F17A00000000000000000103 /* FGCloudGateObstacle.h */,
+				F17A00000000000000000104 /* FGCloudGateObstacle.m */,
+				F17A00000000000000000105 /* FGObstacleDirector.h */,
+				F17A00000000000000000106 /* FGObstacleDirector.m */,
+			);
+			path = Gameplay;
+			sourceTree = "<group>";
+		};
+
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -696,6 +720,9 @@
 				F15C0000000000000000020A /* FGChallengeResultsViewController.m in Sources */,
 				F15C0000000000000000020B /* FGChallengeRules.m in Sources */,
 				F15C0000000000000000020C /* FGChallengeTransport.m in Sources */,
+				F17A00000000000000000201 /* FGGameplayObstacle.m in Sources */,
+				F17A00000000000000000202 /* FGCloudGateObstacle.m in Sources */,
+				F17A00000000000000000203 /* FGObstacleDirector.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

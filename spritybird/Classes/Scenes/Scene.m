@@ -10,6 +10,8 @@
 #import "SKScrollingNode.h"
 #import "BirdNode.h"
 #import "Score.h"
+#import "FGCloudGateObstacle.h"
+#import "FGObstacleDirector.h"
 
 #define BACK_SCROLLING_SPEED 0
 #define FLOOR_SCROLLING_SPEED 3
@@ -38,8 +40,8 @@
     BirdNode * bird;
     
     int nbObstacles;
-    NSMutableArray * topPipes;
-    NSMutableArray * bottomPipes;
+    NSMutableArray * gameplayObstacles;
+    FGObstacleDirector * obstacleDirector;
     
     BOOL _gamePaused;
 
@@ -57,8 +59,27 @@ static bool wasted = NO;
 - (id)initWithSize:(CGSize)size {
     if (self = [super initWithSize:size]) {
         self.physicsWorld.contactDelegate = self;
+        obstacleDirector =
+            [[FGObstacleDirector alloc] initWithMode:FGObstacleModeLegacyClassic];
         [self startGame];
     }
+    return self;
+}
+
+- (instancetype)initWithSize:(CGSize)size
+                        mode:(FGObstacleMode)mode
+{
+    if (mode == FGObstacleModeLegacyClassic) {
+        return [self initWithSize:size];
+    }
+
+    if (self = [super initWithSize:size]) {
+        self.physicsWorld.contactDelegate = self;
+        obstacleDirector =
+            [[FGObstacleDirector alloc] initWithMode:mode];
+        [self startGame];
+    }
+
     return self;
 }
 
@@ -285,35 +306,50 @@ static bool wasted = NO;
 
 - (void) createObstacles
 {
-    // Calculate how many obstacles we need, the less the better
     nbObstacles = ceil(WIDTH(self)/(OBSTACLE_INTERVAL_SPACE));
-    
+
+    gameplayObstacles = @[].mutableCopy;
     CGFloat lastBlockPos = 0;
-    bottomPipes = @[].mutableCopy;
-    topPipes = @[].mutableCopy;
+
+    BOOL legacyClassicCloudGateOnly =
+        [obstacleDirector legacyClassicUsesCloudGateOnly];
+    BOOL stageObstacleFamiliesAllowed =
+        [obstacleDirector allowsStageObstacleFamilies];
+
+    if (![obstacleDirector allowsLegacyClassicCloudGate] ||
+        (!legacyClassicCloudGateOnly && !stageObstacleFamiliesAllowed)) {
+        return;
+    }
+
     for(int i=0;i<nbObstacles;i++){
-        
-        SKSpriteNode * topPipe = [SKSpriteNode spriteNodeWithImageNamed:@"pipe_top"];
+
+        SKSpriteNode * topPipe =
+            [SKSpriteNode spriteNodeWithImageNamed:@"pipe_top"];
         [topPipe setAnchorPoint:CGPointZero];
         [topPipe setName:@"topPipe"];
         [self addChild:topPipe];
-        [topPipes addObject:topPipe];
-        
-        SKSpriteNode * bottomPipe = [SKSpriteNode spriteNodeWithImageNamed:@"pipe_bottom"];
+
+        SKSpriteNode * bottomPipe =
+            [SKSpriteNode spriteNodeWithImageNamed:@"pipe_bottom"];
         [bottomPipe setAnchorPoint:CGPointZero];
         [bottomPipe setName:@"bottomPipe"];
         [self addChild:bottomPipe];
-        [bottomPipes addObject:bottomPipe];
-        
-        // Give some time to the player before first obstacle
+
         if(0 == i){
-            [self place:bottomPipe and:topPipe atX:WIDTH(self)+FIRST_OBSTACLE_PADDING];
+            [self place:bottomPipe
+                    and:topPipe
+                    atX:WIDTH(self)+FIRST_OBSTACLE_PADDING];
         }else{
-            [self place:bottomPipe and:topPipe atX:lastBlockPos + WIDTH(bottomPipe) +OBSTACLE_INTERVAL_SPACE];
+            [self place:bottomPipe
+                    and:topPipe
+                    atX:lastBlockPos + WIDTH(bottomPipe) + OBSTACLE_INTERVAL_SPACE];
         }
+
+        FGCloudGateObstacle * cloudGate = [[FGCloudGateObstacle alloc] initWithBottomPipe:bottomPipe topPipe:topPipe];
+        [gameplayObstacles addObject:cloudGate];
+
         lastBlockPos = topPipe.position.x;
     }
-    
 }
 
 #pragma mark - Interaction 
@@ -416,30 +452,45 @@ static bool wasted = NO;
     if(!bird.physicsBody){
         return;
     }
-    
+
     for(int i=0;i<nbObstacles;i++){
-        
-        // Get pipes bby pairs
-        SKSpriteNode * topPipe = (SKSpriteNode *) topPipes[i];
-        SKSpriteNode * bottomPipe = (SKSpriteNode *) bottomPipes[i];
-        
-        // Check if pair has exited screen, and place them upfront again
-        if (X(topPipe) < -WIDTH(topPipe)){
-            SKSpriteNode * mostRightPipe = (SKSpriteNode *) topPipes[(i+(nbObstacles-1))%nbObstacles];
-            [self place:bottomPipe and:topPipe atX:X(mostRightPipe)+WIDTH(topPipe)+OBSTACLE_INTERVAL_SPACE];
+
+        FGCloudGateObstacle * cloudGate =
+            (FGCloudGateObstacle *)gameplayObstacles[i];
+
+        if (X(cloudGate.topPipe) < -WIDTH(cloudGate.topPipe)){
+            FGCloudGateObstacle * mostRightObstacle =
+                (FGCloudGateObstacle *)
+                gameplayObstacles[(i+(nbObstacles-1))%nbObstacles];
+
+            CGFloat recycledX =
+                X(mostRightObstacle.topPipe) +
+                WIDTH(cloudGate.topPipe) +
+                OBSTACLE_INTERVAL_SPACE;
+
+            [self place:cloudGate.bottomPipe
+                    and:cloudGate.topPipe
+                    atX:recycledX];
+
+            [cloudGate resetForReuseAtX:recycledX];
         }
-        
-        // Move according to the scrolling speed
-        topPipe.position = CGPointMake(X(topPipe) - FLOOR_SCROLLING_SPEED, Y(topPipe));
-        bottomPipe.position = CGPointMake(X(bottomPipe) - FLOOR_SCROLLING_SPEED, Y(bottomPipe));
+
+        [cloudGate updateWithScrollDelta:FLOOR_SCROLLING_SPEED];
     }
 }
 
 - (void) place:(SKSpriteNode *) bottomPipe and:(SKSpriteNode *) topPipe atX:(float) xPos
 {
     // Maths
+    CGFloat cloudGateGapHeight = VERTICAL_GAP_SIZE;
+    if ([obstacleDirector allowsStageObstacleFamilies]) {
+        cloudGateGapHeight =
+            [obstacleDirector stageCloudGateGapHeight];
+    }
+
     float availableSpace = HEIGHT(self) - HEIGHT(floor);
-    float maxVariance = availableSpace - (2*OBSTACLE_MIN_HEIGHT) - VERTICAL_GAP_SIZE;
+    float maxVariance =
+        availableSpace - (2*OBSTACLE_MIN_HEIGHT) - cloudGateGapHeight;
     float variance = [Math randomFloatBetween:0 and:maxVariance];
     
     // Bottom pipe placement
@@ -451,7 +502,9 @@ static bool wasted = NO;
     bottomPipe.physicsBody.contactTestBitMask = birdBitMask;
     
     // Top pipe placement
-    topPipe.position = CGPointMake(xPos,bottomPosY + HEIGHT(bottomPipe) + VERTICAL_GAP_SIZE);
+    topPipe.position =
+        CGPointMake(xPos,
+                    bottomPosY + HEIGHT(bottomPipe) + cloudGateGapHeight);
     topPipe.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(8.0, 0.0, 76.5, 38.5)];
     
     topPipe.physicsBody.categoryBitMask = blockBitMask;
@@ -462,20 +515,12 @@ static bool wasted = NO;
 - (void) updateScore:(NSTimeInterval) currentTime
 {
     for(int i=0;i<nbObstacles;i++){
-        
-        SKSpriteNode * topPipe = (SKSpriteNode *) topPipes[i];
-        SKSpriteNode * bottomPipe = (SKSpriteNode *) bottomPipes[i];
 
-        CGFloat gapBottomY = Y(bottomPipe) + HEIGHT(bottomPipe);
-        CGFloat gapTopY = Y(topPipe);
-        BOOL birdPassedGap =
-            bird.position.y > gapBottomY &&
-            bird.position.y < gapTopY;
-        
-        // Score, adapt font size
-        if(birdPassedGap &&
-           X(topPipe) + WIDTH(topPipe)/2 > bird.position.x &&
-           X(topPipe) + WIDTH(topPipe)/2 < bird.position.x + FLOOR_SCROLLING_SPEED){
+        FGCloudGateObstacle * cloudGate =
+            (FGCloudGateObstacle *)gameplayObstacles[i];
+
+        if([cloudGate hasPlayerCleared:bird
+                       withinCrossingDelta:FLOOR_SCROLLING_SPEED]){
             self.score +=1;
             scoreLabel.text = [NSString stringWithFormat:@"%lu",(long)self.score];
             [APP_CTRL playPointSound];

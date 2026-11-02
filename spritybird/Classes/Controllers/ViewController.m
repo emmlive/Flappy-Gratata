@@ -28,6 +28,9 @@
 @property (strong, nonatomic) UIButton *btnHangar;
 @property (strong, nonatomic) UIButton *btnChallengeFriend;
 
+@property (strong, nonatomic) UIView *gameOverIntroView;
+@property (strong, nonatomic) UIButton *btnGameOverTryAgain;
+
 @end
 
 @interface ViewController ()
@@ -377,6 +380,84 @@
                        forControlEvents:UIControlEventTouchUpInside];
     [self.gameOverView addSubview:self.btnChallengeFriend];
 
+    self.gameOverIntroView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.gameOverIntroView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.gameOverIntroView.backgroundColor =
+        [UIColor colorWithRed:0.025
+                        green:0.060
+                         blue:0.115
+                        alpha:0.97];
+    self.gameOverIntroView.layer.cornerRadius = 24.0;
+    self.gameOverIntroView.layer.borderWidth = 1.0;
+    self.gameOverIntroView.layer.borderColor =
+        [UIColor colorWithRed:0.22
+                        green:0.78
+                         blue:0.98
+                        alpha:0.62].CGColor;
+    self.gameOverIntroView.layer.shadowColor =
+        [UIColor blackColor].CGColor;
+    self.gameOverIntroView.layer.shadowOpacity = 0.32;
+    self.gameOverIntroView.layer.shadowRadius = 18.0;
+    self.gameOverIntroView.layer.shadowOffset = CGSizeMake(0.0, 9.0);
+    self.gameOverIntroView.userInteractionEnabled = YES;
+    [rootView addSubview:self.gameOverIntroView];
+
+    UILabel *gameOverIntroTitle =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    gameOverIntroTitle.translatesAutoresizingMaskIntoConstraints = NO;
+    gameOverIntroTitle.text = @"GAME OVER";
+    gameOverIntroTitle.textAlignment = NSTextAlignmentCenter;
+    gameOverIntroTitle.textColor = [UIColor whiteColor];
+    gameOverIntroTitle.font =
+        [UIFont systemFontOfSize:30.0
+                         weight:UIFontWeightHeavy];
+    gameOverIntroTitle.adjustsFontSizeToFitWidth = YES;
+    gameOverIntroTitle.minimumScaleFactor = 0.8;
+    [self.gameOverIntroView addSubview:gameOverIntroTitle];
+
+    UILabel *gameOverIntroDetail =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    gameOverIntroDetail.translatesAutoresizingMaskIntoConstraints = NO;
+    gameOverIntroDetail.text = @"That run is done.";
+    gameOverIntroDetail.textAlignment = NSTextAlignmentCenter;
+    gameOverIntroDetail.textColor =
+        [UIColor colorWithRed:0.30
+                        green:0.88
+                         blue:1.0
+                        alpha:1.0];
+    gameOverIntroDetail.font =
+        [UIFont systemFontOfSize:12.0
+                         weight:UIFontWeightSemibold];
+    [self.gameOverIntroView addSubview:gameOverIntroDetail];
+
+    self.btnGameOverTryAgain = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnGameOverTryAgain.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnGameOverTryAgain.accessibilityLabel = @"Try Again";
+    [self.btnGameOverTryAgain setTitle:@"TRY AGAIN"
+                             forState:UIControlStateNormal];
+    [self.btnGameOverTryAgain setTitleColor:[UIColor whiteColor]
+                                  forState:UIControlStateNormal];
+    self.btnGameOverTryAgain.titleLabel.font =
+        [UIFont boldSystemFontOfSize:17.0];
+    self.btnGameOverTryAgain.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.btnGameOverTryAgain.titleLabel.minimumScaleFactor = 0.78;
+    self.btnGameOverTryAgain.backgroundColor =
+        [UIColor colorWithRed:0.05
+                        green:0.24
+                         blue:0.34
+                        alpha:0.96];
+    self.btnGameOverTryAgain.layer.cornerRadius = 14.0;
+    self.btnGameOverTryAgain.layer.borderWidth = 1.0;
+    self.btnGameOverTryAgain.layer.borderColor =
+        [UIColor colorWithRed:0.25
+                        green:0.85
+                         blue:1.0
+                        alpha:0.85].CGColor;
+    [self.btnGameOverTryAgain addTarget:self
+                                 action:@selector(gameOverTryAgain:)
+                       forControlEvents:UIControlEventTouchUpInside];
+    [self.gameOverIntroView addSubview:self.btnGameOverTryAgain];
+
     UILayoutGuide *safeArea = rootView.safeAreaLayoutGuide;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -502,7 +583,33 @@
         [self.btnChallengeFriend.trailingAnchor constraintEqualToAnchor:self.gameOverView.trailingAnchor
                                                                constant:-20.0],
         [self.btnChallengeFriend.widthAnchor constraintEqualToConstant:132.0],
-        [self.btnChallengeFriend.heightAnchor constraintEqualToConstant:42.0]
+        [self.btnChallengeFriend.heightAnchor constraintEqualToConstant:42.0],
+
+        [self.gameOverIntroView.centerXAnchor constraintEqualToAnchor:safeArea.centerXAnchor],
+        [self.gameOverIntroView.centerYAnchor constraintEqualToAnchor:safeArea.centerYAnchor],
+        [self.gameOverIntroView.widthAnchor constraintEqualToConstant:300.0],
+        [self.gameOverIntroView.widthAnchor constraintLessThanOrEqualToAnchor:safeArea.widthAnchor],
+        [self.gameOverIntroView.heightAnchor constraintEqualToConstant:206.0],
+
+        [gameOverIntroTitle.topAnchor constraintEqualToAnchor:self.gameOverIntroView.topAnchor
+                                                     constant:28.0],
+        [gameOverIntroTitle.leadingAnchor constraintEqualToAnchor:self.gameOverIntroView.leadingAnchor
+                                                         constant:20.0],
+        [gameOverIntroTitle.trailingAnchor constraintEqualToAnchor:self.gameOverIntroView.trailingAnchor
+                                                          constant:-20.0],
+        [gameOverIntroTitle.heightAnchor constraintEqualToConstant:38.0],
+
+        [gameOverIntroDetail.topAnchor constraintEqualToAnchor:gameOverIntroTitle.bottomAnchor
+                                                      constant:4.0],
+        [gameOverIntroDetail.leadingAnchor constraintEqualToAnchor:gameOverIntroTitle.leadingAnchor],
+        [gameOverIntroDetail.trailingAnchor constraintEqualToAnchor:gameOverIntroTitle.trailingAnchor],
+        [gameOverIntroDetail.heightAnchor constraintEqualToConstant:18.0],
+
+        [self.btnGameOverTryAgain.topAnchor constraintEqualToAnchor:gameOverIntroDetail.bottomAnchor
+                                                           constant:24.0],
+        [self.btnGameOverTryAgain.centerXAnchor constraintEqualToAnchor:self.gameOverIntroView.centerXAnchor],
+        [self.btnGameOverTryAgain.widthAnchor constraintEqualToConstant:216.0],
+        [self.btnGameOverTryAgain.heightAnchor constraintEqualToConstant:52.0]
     ]];
 }
 
@@ -513,6 +620,10 @@
     self.gameOverView.alpha = 0;
     self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
     self.gameOverView.userInteractionEnabled = YES;
+    self.gameOverIntroView.alpha = 0;
+    self.gameOverIntroView.transform = CGAffineTransformMakeScale(.9, .9);
+    self.gameOverIntroView.hidden = YES;
+    self.gameOverIntroView.userInteractionEnabled = YES;
     self.challengeTransport = [[FGChallengeTransport alloc] init];
     [self.challengeTransport setPresentationViewController:self];
     self.challengeTransport.delegate = self;
@@ -526,6 +637,21 @@
     }
 
     scene = [Scene sceneWithSize:self.gameView.bounds.size];
+    scene.scaleMode = SKSceneScaleModeAspectFill;
+    scene.gameDelegate = self;
+
+    [self.gameView presentScene:scene];
+}
+
+- (void)launchStageMode
+{
+    if (CGRectIsEmpty(self.gameView.bounds)) {
+        return;
+    }
+
+    scene = [[Scene alloc]
+        initWithSize:self.gameView.bounds.size
+        mode:FGObstacleModeStage];
     scene.scaleMode = SKSceneScaleModeAspectFill;
     scene.gameDelegate = self;
 
@@ -559,10 +685,14 @@
     [UIView animateWithDuration:.2 animations:^{
         self.gameOverView.alpha = 0;
         self.gameOverView.transform = CGAffineTransformMakeScale(.8, .8);
+        self.gameOverIntroView.alpha = 0;
+        self.gameOverIntroView.transform = CGAffineTransformMakeScale(.8, .8);
         flash.alpha = 0;
         self.getReadyView.alpha = 1;
     } completion:^(BOOL finished) {
         [flash removeFromSuperview];
+        self.gameOverIntroView.hidden = YES;
+        self.gameOverIntroView.userInteractionEnabled = YES;
 
     }];
     
@@ -594,12 +724,19 @@
     [self shakeFrame];
     playerScore = [F(@"%li",(long)scene.score) intValue];//----Set player Current Score
     
+    // Stage 1: results/options panel stays hidden until TRY AGAIN.
+    self.gameOverView.alpha = 0;
+    self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
+    self.gameOverIntroView.hidden = NO;
+    self.gameOverIntroView.userInteractionEnabled = YES;
+    self.gameOverIntroView.transform = CGAffineTransformMakeScale(.9, .9);
+    
     [UIView animateWithDuration:.6 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         
-        // Display game over
+        // Display the dedicated game over intro
         flash.alpha = .4;
-        self.gameOverView.alpha = 1;
-        self.gameOverView.transform = CGAffineTransformMakeScale(1, 1);
+        self.gameOverIntroView.alpha = 1;
+        self.gameOverIntroView.transform = CGAffineTransformMakeScale(1, 1);
         
         // Set medal
         if(scene.score >= 40){
@@ -625,6 +762,22 @@
         [self reportScoreToGameCenter:playerScore];
     }];
     
+}
+
+- (void)gameOverTryAgain:(id)sender
+{
+    self.gameOverIntroView.userInteractionEnabled = NO;
+    self.gameOverView.userInteractionEnabled = YES;
+    self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
+    
+    [UIView animateWithDuration:.28 animations:^{
+        // Stage 2: reveal the existing results/options panel
+        self.gameOverIntroView.alpha = 0;
+        self.gameOverView.alpha = 1;
+        self.gameOverView.transform = CGAffineTransformMakeScale(1, 1);
+    } completion:^(BOOL finished) {
+        self.gameOverIntroView.hidden = YES;
+    }];
 }
 
 - (void) shakeFrame
