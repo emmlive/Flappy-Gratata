@@ -7,6 +7,8 @@
 //
 
 
+#import "FGObstacleDirector.h"
+
 @protocol SceneDelegate <NSObject>
 - (void) eventStart:(BOOL)wasted;
 - (void) eventPlay;
@@ -16,8 +18,11 @@
 
 @interface Scene : SKScene<SKPhysicsContactDelegate>
 
-@property (unsafe_unretained,nonatomic) id<SceneDelegate> delegate;
+@property (unsafe_unretained,nonatomic) id<SceneDelegate> gameDelegate;
 @property (nonatomic) NSInteger score;
+
+- (instancetype)initWithSize:(CGSize)size
+                         mode:(FGObstacleMode)mode;
 
 - (void) startGame;
 

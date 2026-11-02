@@ -17,6 +17,7 @@
 - (void)twitterFunc:(id)sender;
 - (void)gameCenterFunc:(id)sender;
 - (void)challengeFriendFunc:(id)sender;
+- (void)launchStageMode;
 @property (strong, nonatomic) UIButton *btnTwitter;
 @property (strong, nonatomic) UIButton *btnGameCenter;
 

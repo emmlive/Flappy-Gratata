@@ -4,6 +4,7 @@
 #import "FGChallengeCourseGenerator.h"
 #import "FGChallengeGhostRenderer.h"
 #import "FGChallengePacket.h"
+#import "FGChallengeRaceContract.h"
 #import "FGChallengeRaceScene.h"
 #import "FGChallengeResultsViewController.h"
 #import "FGChallengeResultVerifier.h"
@@ -149,6 +150,10 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
     [rulesButton addTarget:self action:@selector(showRules:) forControlEvents:UIControlEventTouchUpInside];
     [contentView addSubview:rulesButton];
 
+    UIButton *exitButton = [self actionButtonWithTitle:@"Exit Challenge" accent:NO];
+    [exitButton addTarget:self action:@selector(exitChallengeToHome) forControlEvents:UIControlEventTouchUpInside];
+    [contentView addSubview:exitButton];
+
     UILabel *footer = [self labelWithText:@"Same course. Same rules. Live race."
                                      color:[UIColor colorWithWhite:0.58 alpha:1.0]
                                       font:[UIFont systemFontOfSize:12.0 weight:UIFontWeightMedium]];
@@ -219,7 +224,12 @@ static void *FGChallengeLobbyTransportObservationContext = &FGChallengeLobbyTran
         [rulesButton.trailingAnchor constraintEqualToAnchor:self.readyButton.trailingAnchor],
         [rulesButton.heightAnchor constraintEqualToConstant:46.0],
 
-        [footer.topAnchor constraintEqualToAnchor:rulesButton.bottomAnchor constant:20.0],
+        [exitButton.topAnchor constraintEqualToAnchor:rulesButton.bottomAnchor constant:11.0],
+        [exitButton.leadingAnchor constraintEqualToAnchor:rulesButton.leadingAnchor],
+        [exitButton.trailingAnchor constraintEqualToAnchor:rulesButton.trailingAnchor],
+        [exitButton.heightAnchor constraintEqualToConstant:46.0],
+
+        [footer.topAnchor constraintEqualToAnchor:exitButton.bottomAnchor constant:20.0],
         [footer.leadingAnchor constraintEqualToAnchor:contentView.leadingAnchor constant:28.0],
         [footer.trailingAnchor constraintEqualToAnchor:contentView.trailingAnchor constant:-28.0],
         [footer.bottomAnchor constraintEqualToAnchor:contentView.bottomAnchor constant:-30.0],
@@ -487,15 +497,16 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
                         forKeyPath:@"lastAcceptedRemotePacket"
                            options:NSKeyValueObservingOptionNew
                            context:FGChallengeLobbyCoordinatorObservationContext];
-    [self.transport addObserver:self
+    NSObject *transportObject = (NSObject *)self.transport;
+    [transportObject addObserver:self
                       forKeyPath:@"available"
                          options:NSKeyValueObservingOptionNew
                          context:FGChallengeLobbyTransportObservationContext];
-    [self.transport addObserver:self
+    [transportObject addObserver:self
                       forKeyPath:@"authenticated"
                          options:NSKeyValueObservingOptionNew
                          context:FGChallengeLobbyTransportObservationContext];
-    [self.transport addObserver:self
+    [transportObject addObserver:self
                       forKeyPath:@"localPlayerIdentifier"
                          options:NSKeyValueObservingOptionNew
                          context:FGChallengeLobbyTransportObservationContext];
@@ -511,9 +522,10 @@ didChangePeerWithIdentifier:(NSString *)playerIdentifier
     [self.coordinator removeObserver:self forKeyPath:@"state" context:FGChallengeLobbyCoordinatorObservationContext];
     [self.coordinator removeObserver:self forKeyPath:@"peerPlayerIdentifier" context:FGChallengeLobbyCoordinatorObservationContext];
     [self.coordinator removeObserver:self forKeyPath:@"lastAcceptedRemotePacket" context:FGChallengeLobbyCoordinatorObservationContext];
-    [self.transport removeObserver:self forKeyPath:@"available" context:FGChallengeLobbyTransportObservationContext];
-    [self.transport removeObserver:self forKeyPath:@"authenticated" context:FGChallengeLobbyTransportObservationContext];
-    [self.transport removeObserver:self forKeyPath:@"localPlayerIdentifier" context:FGChallengeLobbyTransportObservationContext];
+    NSObject *transportObject = (NSObject *)self.transport;
+    [transportObject removeObserver:self forKeyPath:@"available" context:FGChallengeLobbyTransportObservationContext];
+    [transportObject removeObserver:self forKeyPath:@"authenticated" context:FGChallengeLobbyTransportObservationContext];
+    [transportObject removeObserver:self forKeyPath:@"localPlayerIdentifier" context:FGChallengeLobbyTransportObservationContext];
     self.observingChallengeState = NO;
 }
 

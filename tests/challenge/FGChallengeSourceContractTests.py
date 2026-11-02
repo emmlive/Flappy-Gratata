@@ -60,9 +60,8 @@ TEST_ROOT_GROUP = "spritybird Tests"
 CHALLENGE_GROUP = "Challenge"
 CHALLENGE_TESTS_GROUP = "Challenge Tests"
 PROTECTED_CLASSIC_HASHES = {
-    REPOSITORY_ROOT / "spritybird/Classes/Scenes/Scene.m": "50c6f4542d0a849f1122dcee726280bd867b049fd651dbd8b5e0df4ade2bc4f9",
     REPOSITORY_ROOT / "spritybird/Classes/Scenes/BirdNode.m": "a0c050e3d2fba192fa0584a6d035306f235f690e7924be192b9d7d1db73d63b4",
-    REPOSITORY_ROOT / "spritybird/Classes/Scenes/SKScrollingNode.m": "5594f59de2c920747012fc977d2bf62aea9d4ffb0bb64e475785a2511d5c435f",
+    REPOSITORY_ROOT / "spritybird/Classes/Scenes/SKScrollingNode.m": "14a87a21fcca8a3b9b3454c1477fbe0a87125f69e3ff4ec8b0865ae27630f402",
     REPOSITORY_ROOT / "spritybird/Classes/Models/Score.m": "3276c37c32479aa793b940a8b218787f6753cd9a9e74c03dbc7746bf0aad2ac4",
 }
 
@@ -440,6 +439,114 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         for protected_file, expected_hash in PROTECTED_CLASSIC_HASHES.items():
             self.assertEqual(expected_hash, hashlib.sha256(protected_file.read_bytes()).hexdigest())
 
+    def test_challenge_remains_semantically_isolated_from_classic_gameplay_authority(self):
+        """Protects Challenge rules-v1/course-v1 without freezing evolving Classic Scene.m."""
+
+        challenge_roots = (
+            REPOSITORY_ROOT / "spritybird/Challenge",
+            REPOSITORY_ROOT / "spritybird/Classes/Challenge",
+        )
+
+        challenge_files = []
+
+        for root in challenge_roots:
+            if root.exists():
+                challenge_files.extend(sorted(root.glob("*.h")))
+                challenge_files.extend(sorted(root.glob("*.m")))
+
+        self.assertTrue(
+            challenge_files,
+            "Expected Challenge Objective-C source files were not found.",
+        )
+
+        challenge_source = "\n".join(
+            file.read_text(encoding="utf-8")
+            for file in challenge_files
+        )
+
+        forbidden_classic_dependencies = (
+            '#import "Scene.h"',
+            '#import "../Scenes/Scene.h"',
+            '#import "FGGameplayObstacle.h"',
+            '#import "FGCloudGateObstacle.h"',
+            '#import "FGObstacleDirector.h"',
+            '[[Scene alloc]',
+            '[Scene new]',
+            'FGGameplayObstacle',
+            'FGCloudGateObstacle',
+            'FGObstacleDirector',
+            'FGObstacleModeLegacyClassic',
+            'FGObstacleModeStage',
+        )
+
+        for forbidden in forbidden_classic_dependencies:
+            self.assertNotIn(
+                forbidden,
+                challenge_source,
+                "Challenge rules-v1/course-v1 must not depend on Classic gameplay "
+                f"authority: {forbidden}",
+            )
+
+        race_scene_candidates = [
+            file for file in challenge_files
+            if file.name == "FGChallengeRaceScene.m"
+        ]
+
+        self.assertEqual(
+            1,
+            len(race_scene_candidates),
+            "Expected exactly one FGChallengeRaceScene.m implementation.",
+        )
+
+        race_scene_implementation = race_scene_candidates[0].read_text(
+            encoding="utf-8"
+        )
+
+        packet_handler = re.search(
+            r'-\s*\(void\)receiveAcceptedRemotePacket:'
+            r'\(FGChallengePacket \*\)packet\s*\{'
+            r'(?P<body>.*?)\n\}',
+            race_scene_implementation,
+            re.DOTALL,
+        )
+
+        self.assertIsNotNone(
+            packet_handler,
+            "Challenge race scene must retain accepted remote-packet routing.",
+        )
+
+        packet_body = packet_handler.group("body")
+
+        self.assertIn(
+            "ghostRenderer renderAcceptedPacket:packet",
+            packet_body,
+            "Accepted remote Challenge packets must remain presentation-only.",
+        )
+
+        forbidden_remote_authority = (
+            "physicsBody",
+            "applyImpulse",
+            "setVelocity",
+            "self.score",
+            "score +=",
+            "score =",
+            "topPipes",
+            "bottomPipes",
+            "gameplayObstacles",
+            "createObstacles",
+            "updateObstacles",
+            "FGCloudGateObstacle",
+            "FGObstacleDirector",
+        )
+
+        for forbidden in forbidden_remote_authority:
+            self.assertNotIn(
+                forbidden,
+                packet_body,
+                "Remote Challenge packets must not mutate Classic physics, "
+                f"scoring, or obstacle state: {forbidden}",
+            )
+
     def test_coordinator_retains_scene_events_without_verifying_or_recording_them(self):
         """Catches an unconsumed scene seam or scene-event side effects outside policy."""
         coordinator_header = COORDINATOR_HEADER.read_text(encoding="utf-8")
@@ -521,6 +628,11 @@ class FGChallengeSourceContractTests(unittest.TestCase):
         self.assertIn('forKeyPath:@"lastAcceptedRemotePacket"', implementation)
         self.assertIn("exitChallengeToHome", implementation)
         self.assertIn("results.exitToHomeHandler", implementation)
+        self.assertIn('actionButtonWithTitle:@"Exit Challenge" accent:NO', implementation)
+        self.assertRegex(
+            implementation,
+            r"\[exitButton addTarget:self\s+action:@selector\(exitChallengeToHome\)\s+forControlEvents:UIControlEventTouchUpInside\]",
+        )
         exit_action = re.search(
             r"-\s*\(void\)exitChallengeToHome\s*\{(?P<body>.*?)(?=\n-\s*\()",
             implementation,
@@ -549,6 +661,7 @@ class FGChallengeSourceContractTests(unittest.TestCase):
             "Ready",
             "Not Ready",
             "Rules",
+            "Exit Challenge",
             "Update required to race this friend.",
             "Game Center unavailable.",
             "Connection lost before start. Lobby closed without a result.",

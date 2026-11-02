@@ -23,6 +23,27 @@
     scrollView.alwaysBounceVertical = YES;
     [self.view addSubview:scrollView];
 
+    UIButton *topCloseButton =
+        [UIButton buttonWithType:UIButtonTypeSystem];
+    topCloseButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [topCloseButton setTitle:@"DONE"
+                    forState:UIControlStateNormal];
+    [topCloseButton setTitleColor:[UIColor whiteColor]
+                         forState:UIControlStateNormal];
+    topCloseButton.titleLabel.font =
+        [UIFont boldSystemFontOfSize:14.0];
+    topCloseButton.backgroundColor =
+        [UIColor colorWithRed:0.10
+                        green:0.55
+                         blue:0.78
+                        alpha:1.0];
+    topCloseButton.layer.cornerRadius = 10.0;
+    topCloseButton.accessibilityLabel = @"Close Bird Hangar";
+    [topCloseButton addTarget:self
+                       action:@selector(closeHangar:)
+             forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:topCloseButton];
+
     UIView *contentView =
         [[UIView alloc] initWithFrame:CGRectZero];
     contentView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -461,6 +482,15 @@
     UILayoutGuide *safeArea = self.view.safeAreaLayoutGuide;
 
     [NSLayoutConstraint activateConstraints:@[
+        [topCloseButton.leadingAnchor
+            constraintEqualToAnchor:safeArea.leadingAnchor
+                           constant:16.0],
+        [topCloseButton.topAnchor
+            constraintEqualToAnchor:safeArea.topAnchor
+                           constant:8.0],
+        [topCloseButton.widthAnchor constraintEqualToConstant:72.0],
+        [topCloseButton.heightAnchor constraintEqualToConstant:36.0],
+
         [scrollView.leadingAnchor
             constraintEqualToAnchor:safeArea.leadingAnchor],
         [scrollView.trailingAnchor

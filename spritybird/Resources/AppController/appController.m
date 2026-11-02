@@ -32,7 +32,7 @@ static appController *sharedappController = nil;
 }
 -(void)playJumpSound{
     SystemSoundID soundID;
-    NSURL *url = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%@/JumpSound.mp3", [[NSBundle mainBundle] resourcePath]]];
+    NSURL *url = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%@/JumpSound.caf", [[NSBundle mainBundle] resourcePath]]];
     
     AudioServicesCreateSystemSoundID((__bridge CFURLRef)url, &soundID);
     AudioServicesPlaySystemSound (soundID);

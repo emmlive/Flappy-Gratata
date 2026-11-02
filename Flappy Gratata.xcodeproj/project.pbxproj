@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F17A00000000000000000201 /* FGGameplayObstacle.m in Sources */ = {isa = PBXBuildFile; fileRef = F17A00000000000000000102 /* FGGameplayObstacle.m */; };
+		F17A00000000000000000202 /* FGCloudGateObstacle.m in Sources */ = {isa = PBXBuildFile; fileRef = F17A00000000000000000104 /* FGCloudGateObstacle.m */; };
+		F17A00000000000000000203 /* FGObstacleDirector.m in Sources */ = {isa = PBXBuildFile; fileRef = F17A00000000000000000106 /* FGObstacleDirector.m */; };
+		F16C00000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F16C00000000000000000002 /* PrivacyInfo.xcprivacy */; };
 		821A755618AD616C00B376D5 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A218A6F53400FEBE9B /* AppDelegate.m */; };
 		821A755718AD617800B376D5 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 82C6A0A818A6F53400FEBE9B /* ViewController.m */; };
 		A8D5000318B132B40099A4FE /* BirdHangarViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A8D5000218B132B40099A4FE /* BirdHangarViewController.m */; };
@@ -52,6 +56,7 @@
 		CEBA89A518EBA8FC009B4979 /* gameCenterIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CEBA89A318EBA8FC009B4979 /* gameCenterIcon@2x.png */; };
 		CEE995EB18E604D500248B08 /* GameOverSound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CEE995E818E604D500248B08 /* GameOverSound.mp3 */; };
 		CEE995EC18E604D500248B08 /* JumpSound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CEE995E918E604D500248B08 /* JumpSound.mp3 */; };
+		CEE995F518E604D500248B08 /* JumpSound.caf in Resources */ = {isa = PBXBuildFile; fileRef = CEE995F418E604D500248B08 /* JumpSound.caf */; };
 		CEE995ED18E604D500248B08 /* PointSound.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = CEE995EA18E604D500248B08 /* PointSound.mp3 */; };
 		CEE995EF18E6055900248B08 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEE995EE18E6055900248B08 /* AudioToolbox.framework */; };
 		CEE995F318E6064C00248B08 /* appController.m in Sources */ = {isa = PBXBuildFile; fileRef = CEE995F218E6064C00248B08 /* appController.m */; };
@@ -106,6 +111,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		F17A00000000000000000101 /* FGGameplayObstacle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGGameplayObstacle.h; sourceTree = "<group>"; };
+		F17A00000000000000000102 /* FGGameplayObstacle.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGGameplayObstacle.m; sourceTree = "<group>"; };
+		F17A00000000000000000103 /* FGCloudGateObstacle.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGCloudGateObstacle.h; sourceTree = "<group>"; };
+		F17A00000000000000000104 /* FGCloudGateObstacle.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGCloudGateObstacle.m; sourceTree = "<group>"; };
+		F17A00000000000000000105 /* FGObstacleDirector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FGObstacleDirector.h; sourceTree = "<group>"; };
+		F17A00000000000000000106 /* FGObstacleDirector.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FGObstacleDirector.m; sourceTree = "<group>"; };
+		F16C00000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		18AD6FA019018AA800FD6B65 /* AppSpecificValues.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppSpecificValues.h; sourceTree = "<group>"; };
 		823C184318B3E57F00C9BD2F /* taptap@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "taptap@2x.png"; sourceTree = "<group>"; };
 		823C184418B3E57F00C9BD2F /* get_ready@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "get_ready@2x.png"; sourceTree = "<group>"; };
@@ -167,6 +179,7 @@
 		CEBA89A318EBA8FC009B4979 /* gameCenterIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "gameCenterIcon@2x.png"; sourceTree = "<group>"; };
 		CEE995E818E604D500248B08 /* GameOverSound.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = GameOverSound.mp3; sourceTree = "<group>"; };
 		CEE995E918E604D500248B08 /* JumpSound.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = JumpSound.mp3; sourceTree = "<group>"; };
+		CEE995F418E604D500248B08 /* JumpSound.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = JumpSound.caf; sourceTree = "<group>"; };
 		CEE995EA18E604D500248B08 /* PointSound.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = PointSound.mp3; sourceTree = "<group>"; };
 		CEE995EE18E6055900248B08 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		CEE995F118E6064C00248B08 /* appController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = appController.h; sourceTree = "<group>"; };
@@ -357,6 +370,7 @@
 			isa = PBXGroup;
 			children = (
 				82C6A09A18A6F53400FEBE9B /* Flappy Gratata-Info.plist */,
+				F16C00000000000000000002 /* PrivacyInfo.xcprivacy */,
 				82C6A09B18A6F53400FEBE9B /* InfoPlist.strings */,
 				82C6A09E18A6F53400FEBE9B /* main.m */,
 				82C6A0A018A6F53400FEBE9B /* Flappy Gratata-Prefix.pch */,
@@ -442,6 +456,7 @@
 				82C6A0D318A790C000FEBE9B /* Controllers */,
 				82C6A0D418A790C800FEBE9B /* Scenes */,
 				82C6A0D718A790FE00FEBE9B /* Helpers */,
+				F17A00000000000000000001 /* Gameplay */,
 			);
 			path = Classes;
 			sourceTree = "<group>";
@@ -511,6 +526,7 @@
 			children = (
 				CEE995E818E604D500248B08 /* GameOverSound.mp3 */,
 				CEE995E918E604D500248B08 /* JumpSound.mp3 */,
+				CEE995F418E604D500248B08 /* JumpSound.caf */,
 				CEE995EA18E604D500248B08 /* PointSound.mp3 */,
 			);
 			path = Sounds;
@@ -525,6 +541,20 @@
 			path = AppController;
 			sourceTree = "<group>";
 		};
+		F17A00000000000000000001 /* Gameplay */ = {
+			isa = PBXGroup;
+			children = (
+				F17A00000000000000000101 /* FGGameplayObstacle.h */,
+				F17A00000000000000000102 /* FGGameplayObstacle.m */,
+				F17A00000000000000000103 /* FGCloudGateObstacle.h */,
+				F17A00000000000000000104 /* FGCloudGateObstacle.m */,
+				F17A00000000000000000105 /* FGObstacleDirector.h */,
+				F17A00000000000000000106 /* FGObstacleDirector.m */,
+			);
+			path = Gameplay;
+			sourceTree = "<group>";
+		};
+
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -641,11 +671,13 @@
 				CEBA899D18EBA7CC009B4979 /* game_over@2x.png in Resources */,
 				823C184618B3E57F00C9BD2F /* get_ready@2x.png in Resources */,
 				CEE995EC18E604D500248B08 /* JumpSound.mp3 in Resources */,
+				CEE995F518E604D500248B08 /* JumpSound.caf in Resources */,
 				82457DBD18B2C3490042CF82 /* bird_3@2x.png in Resources */,
 				A8D3000418B2C3490042CF82 /* bird_neon_1@2x.png in Resources */,
 				A8D3000518B2C3490042CF82 /* bird_neon_2@2x.png in Resources */,
 				A8D3000618B2C3490042CF82 /* bird_neon_3@2x.png in Resources */,
 				CEE995EB18E604D500248B08 /* GameOverSound.mp3 in Resources */,
+				F16C00000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
 				82457DBE18B2C3490042CF82 /* floor@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -688,6 +720,9 @@
 				F15C0000000000000000020A /* FGChallengeResultsViewController.m in Sources */,
 				F15C0000000000000000020B /* FGChallengeRules.m in Sources */,
 				F15C0000000000000000020C /* FGChallengeTransport.m in Sources */,
+				F17A00000000000000000201 /* FGGameplayObstacle.m in Sources */,
+				F17A00000000000000000202 /* FGCloudGateObstacle.m in Sources */,
+				F17A00000000000000000203 /* FGObstacleDirector.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -809,10 +844,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 3ZC7625UVZ;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";
 				INFOPLIST_FILE = "spritybird/Supporting Files/Flappy Gratata-Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathiasnilles.FlappyGratata;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -828,10 +865,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 3ZC7625UVZ;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "spritybird/Supporting Files/Flappy Gratata-Prefix.pch";
 				CODE_SIGN_ENTITLEMENTS = "spritybird/Supporting Files/Flappy Gratata.entitlements";
 				INFOPLIST_FILE = "spritybird/Supporting Files/Flappy Gratata-Info.plist";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathiasnilles.FlappyGratata;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
