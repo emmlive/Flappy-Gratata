@@ -8,6 +8,7 @@ typedef NS_ENUM(NSInteger, FGObstacleMode) {
 @interface FGObstacleDirector : NSObject
 
 @property (nonatomic, readonly) FGObstacleMode mode;
+@property (nonatomic, assign) NSInteger currentStage;
 
 - (instancetype)initWithMode:(FGObstacleMode)mode NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;

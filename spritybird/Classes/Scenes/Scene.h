@@ -20,6 +20,7 @@
 
 @property (unsafe_unretained,nonatomic) id<SceneDelegate> gameDelegate;
 @property (nonatomic) NSInteger score;
+@property (nonatomic) NSInteger currentStage;
 
 - (instancetype)initWithSize:(CGSize)size
                          mode:(FGObstacleMode)mode;

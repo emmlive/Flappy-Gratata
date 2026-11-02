@@ -26,6 +26,11 @@
 #define SKY_BRAKE_COOLDOWN 8.0
 #define SKY_BRAKE_DOUBLE_TOUCH_WINDOW 0.28
 
+// Stage progression
+#define FG_STAGE_PROGRESSION_FIRST_THRESHOLD 5
+#define FG_STAGE_PROGRESSION_SECOND_THRESHOLD 10
+#define FG_STAGE_PROGRESSION_MAX_STAGE 3
+
 @interface Scene ()
 @property (nonatomic, strong) SKPhysicsContact *lastPhysicsContact;
 @end
@@ -36,6 +41,7 @@
     SKSpriteNode * cloudSurfaceVisual;
     SKLabelNode * scoreLabel;
     SKLabelNode * skyBrakeIndicator;
+    SKLabelNode * stageLabel;
     SKShapeNode * skyBrakeEffect;
     BirdNode * bird;
     
@@ -96,6 +102,8 @@ static bool wasted = NO;
     wasted = NO;
     _gamePaused = NO;
     self.score = 0;
+    self.currentStage = 1;
+    obstacleDirector.currentStage = 1;
 
     skyBrakeActive = NO;
     skyBrakeTouchHeld = NO;
@@ -112,6 +120,7 @@ static bool wasted = NO;
     [self createFloor];
     [self createScore];
     [self createSkyBrakeIndicator];
+    [self createStageIndicator];
     [self createObstacles];
     [self createBird];
     
@@ -238,6 +247,30 @@ static bool wasted = NO;
     skyBrakeIndicator.text = @"READY";
 
     [self addChild:skyBrakeIndicator];
+}
+
+- (void)createStageIndicator
+{
+    stageLabel = [SKLabelNode labelNodeWithFontNamed:@"Futura-Medium"];
+
+    stageLabel.fontSize = 16.0;
+    stageLabel.horizontalAlignmentMode =
+        SKLabelHorizontalAlignmentModeLeft;
+    stageLabel.verticalAlignmentMode =
+        SKLabelVerticalAlignmentModeCenter;
+    stageLabel.position =
+        CGPointMake(16.0, HEIGHT(self) - 34.0);
+    stageLabel.zPosition = 20.0;
+    stageLabel.alpha = 0.92;
+    stageLabel.fontColor =
+        [UIColor colorWithRed:0.62
+                        green:0.42
+                         blue:0.95
+                        alpha:1.0];
+    stageLabel.text = [NSString stringWithFormat:@"STAGE %ld", (long)self.currentStage];
+    stageLabel.hidden = ![obstacleDirector allowsStageObstacleFamilies];
+
+    [self addChild:stageLabel];
 }
 
 
@@ -528,8 +561,58 @@ static bool wasted = NO;
                 scoreLabel.fontSize = 340;
                 scoreLabel.position = CGPointMake(CGRectGetMidX(self.frame), 120);
             }
+            [self advanceStageProgressionIfNeeded];
         }
     }
+}
+
+- (void)advanceStageProgressionIfNeeded
+{
+    if (![obstacleDirector allowsStageObstacleFamilies]) {
+        return;
+    }
+
+    NSInteger nextStage = 1;
+    if (self.score >= FG_STAGE_PROGRESSION_SECOND_THRESHOLD) {
+        nextStage = FG_STAGE_PROGRESSION_MAX_STAGE;
+    } else if (self.score >= FG_STAGE_PROGRESSION_FIRST_THRESHOLD) {
+        nextStage = 2;
+    }
+
+    if (nextStage == self.currentStage) {
+        return;
+    }
+
+    self.currentStage = nextStage;
+    obstacleDirector.currentStage = nextStage;
+    stageLabel.text = [NSString stringWithFormat:@"STAGE %ld", (long)self.currentStage];
+    [self presentStageProgressionFeedback];
+}
+
+- (void)presentStageProgressionFeedback
+{
+    if (!stageLabel) {
+        return;
+    }
+
+    [stageLabel removeActionForKey:@"stageProgressionPulse"];
+    stageLabel.xScale = 1.0;
+    stageLabel.yScale = 1.0;
+
+    SKAction *pulseUp =
+        [SKAction group:@[
+            [SKAction scaleTo:1.6 duration:0.18],
+            [SKAction fadeAlphaTo:1.0 duration:0.18]
+        ]];
+
+    SKAction *pulseDown =
+        [SKAction group:@[
+            [SKAction scaleTo:1.0 duration:0.22],
+            [SKAction fadeAlphaTo:0.92 duration:0.22]
+        ]];
+
+    [stageLabel runAction:[SKAction sequence:@[pulseUp, pulseDown]]
+                   withKey:@"stageProgressionPulse"];
 }
 
 #pragma mark - Sky Brake

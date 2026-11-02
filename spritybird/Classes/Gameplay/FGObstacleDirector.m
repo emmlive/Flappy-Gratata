@@ -14,6 +14,7 @@
     self = [super init];
     if (self) {
         _mode = mode;
+        _currentStage = 1;
     }
     return self;
 }
@@ -36,7 +37,17 @@
 - (CGFloat)stageCloudGateGapHeight
 {
     if (self.mode == FGObstacleModeStage) {
-        return FGStageCloudGateNarrowGapHeight;
+        if (self.currentStage <= 1) {
+            return FGStageCloudGateNarrowGapHeight;
+        }
+
+        NSInteger stepsBeyondFirstStage = self.currentStage - 1;
+        CGFloat perStageReduction = 3.0;
+        CGFloat minimumStageAllowance = 90.0;
+        CGFloat reducedAllowance =
+            FGStageCloudGateNarrowGapHeight - (stepsBeyondFirstStage * perStageReduction);
+
+        return MAX(reducedAllowance, minimumStageAllowance);
     }
 
     return FGLegacyClassicCloudGateGapHeight;
