@@ -20,6 +20,7 @@
 @interface ViewController () <FGChallengeTransportDelegate>
 @property (strong, nonatomic) SKView *gameView;
 @property (strong, nonatomic) UIView *getReadyView;
+@property (strong, nonatomic) UIButton *btnStageMode;
 
 @property (strong, nonatomic) UIView *gameOverView;
 @property (strong, nonatomic) UIImageView *medalImageView;
@@ -175,6 +176,49 @@
         [UIFont systemFontOfSize:11.0
                          weight:UIFontWeightMedium];
     [tapPrompt addSubview:tapDetail];
+
+    self.btnStageMode = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnStageMode.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnStageMode.accessibilityLabel = @"Stage Mode";
+    UIImage *stageModeSymbol =
+        [UIImage systemImageNamed:@"cloud.fill"];
+    [self.btnStageMode setImage:stageModeSymbol
+                       forState:UIControlStateNormal];
+    [self.btnStageMode setTitle:@"STAGE MODE"
+                       forState:UIControlStateNormal];
+    [self.btnStageMode setTitleColor:[UIColor whiteColor]
+                             forState:UIControlStateNormal];
+    self.btnStageMode.tintColor =
+        [UIColor colorWithRed:0.62
+                        green:0.42
+                         blue:0.95
+                        alpha:1.0];
+    self.btnStageMode.backgroundColor =
+        [UIColor colorWithRed:0.055
+                        green:0.135
+                         blue:0.215
+                        alpha:0.96];
+    self.btnStageMode.titleLabel.font =
+        [UIFont boldSystemFontOfSize:13.0];
+    self.btnStageMode.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.btnStageMode.titleLabel.minimumScaleFactor = 0.8;
+    self.btnStageMode.layer.cornerRadius = 16.0;
+    self.btnStageMode.layer.borderWidth = 1.0;
+    self.btnStageMode.layer.borderColor =
+        [UIColor colorWithRed:0.62
+                        green:0.42
+                         blue:0.95
+                        alpha:0.60].CGColor;
+    self.btnStageMode.imageView.contentMode =
+        UIViewContentModeScaleAspectFit;
+    self.btnStageMode.imageEdgeInsets =
+        UIEdgeInsetsMake(0.0, -6.0, 0.0, 0.0);
+    self.btnStageMode.titleEdgeInsets =
+        UIEdgeInsetsMake(0.0, 6.0, 0.0, 0.0);
+    [self.btnStageMode addTarget:self
+                           action:@selector(launchStageMode)
+                 forControlEvents:UIControlEventTouchUpInside];
+    [rootView addSubview:self.btnStageMode];
 
     self.gameOverView = [[UIView alloc] initWithFrame:CGRectZero];
     self.gameOverView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -521,6 +565,14 @@
                                             constant:2.0],
         [tapDetail.heightAnchor constraintEqualToConstant:18.0],
 
+        [self.btnStageMode.topAnchor constraintEqualToAnchor:self.getReadyView.bottomAnchor
+                                                     constant:18.0],
+        [self.btnStageMode.centerXAnchor constraintEqualToAnchor:safeArea.centerXAnchor],
+        [self.btnStageMode.widthAnchor constraintEqualToConstant:190.0],
+        [self.btnStageMode.widthAnchor constraintLessThanOrEqualToAnchor:safeArea.widthAnchor
+                                                                 constant:-32.0],
+        [self.btnStageMode.heightAnchor constraintEqualToConstant:40.0],
+
         [self.gameOverView.centerXAnchor constraintEqualToAnchor:safeArea.centerXAnchor],
         [self.gameOverView.centerYAnchor constraintEqualToAnchor:safeArea.centerYAnchor],
         [self.gameOverView.widthAnchor constraintEqualToConstant:320.0],
@@ -624,6 +676,7 @@
     self.gameOverIntroView.transform = CGAffineTransformMakeScale(.9, .9);
     self.gameOverIntroView.hidden = YES;
     self.gameOverIntroView.userInteractionEnabled = YES;
+    self.btnStageMode.alpha = 1;
     self.challengeTransport = [[FGChallengeTransport alloc] init];
     [self.challengeTransport setPresentationViewController:self];
     self.challengeTransport.delegate = self;
@@ -689,6 +742,7 @@
         self.gameOverIntroView.transform = CGAffineTransformMakeScale(.8, .8);
         flash.alpha = 0;
         self.getReadyView.alpha = 1;
+        self.btnStageMode.alpha = 1;
     } completion:^(BOOL finished) {
         [flash removeFromSuperview];
         self.gameOverIntroView.hidden = YES;
@@ -703,6 +757,7 @@
 {
     [UIView animateWithDuration:.5 animations:^{
         self.getReadyView.alpha = 0;
+        self.btnStageMode.alpha = 0;
     }];
 }
 
