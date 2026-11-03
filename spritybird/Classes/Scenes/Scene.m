@@ -30,6 +30,7 @@
 #define FG_STAGE_PROGRESSION_FIRST_THRESHOLD 5
 #define FG_STAGE_PROGRESSION_SECOND_THRESHOLD 10
 #define FG_STAGE_PROGRESSION_MAX_STAGE 3
+#define FG_STAGE_COMPLETION_THRESHOLD 15
 
 @interface Scene ()
 @property (nonatomic, strong) SKPhysicsContact *lastPhysicsContact;
@@ -51,6 +52,7 @@
     FGObstacleDirector * obstacleDirector;
     
     BOOL _gamePaused;
+    BOOL stageCompleted;
 
     BOOL skyBrakeActive;
     BOOL skyBrakeTouchHeld;
@@ -105,6 +107,7 @@ static bool wasted = NO;
     self.score = 0;
     self.currentStage = 1;
     obstacleDirector.currentStage = 1;
+    stageCompleted = NO;
 
     skyBrakeActive = NO;
     skyBrakeTouchHeld = NO;
@@ -416,6 +419,10 @@ static bool wasted = NO;
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
     
+    if (stageCompleted) {
+        return;
+    }
+
     if(wasted){
         [self startGame];
     }
@@ -576,6 +583,10 @@ static bool wasted = NO;
 {
     for(int i=0;i<nbObstacles;i++){
 
+        if (stageCompleted) {
+            return;
+        }
+
         FGCloudGateObstacle * cloudGate =
             (FGCloudGateObstacle *)gameplayObstacles[i];
 
@@ -589,7 +600,47 @@ static bool wasted = NO;
                 scoreLabel.position = CGPointMake(CGRectGetMidX(self.frame), 120);
             }
             [self advanceStageProgressionIfNeeded];
+            [self completeStageRunIfNeeded];
         }
+    }
+}
+
+- (void)completeStageRunIfNeeded
+{
+    if (stageCompleted || ![obstacleDirector allowsStageObstacleFamilies]) {
+        return;
+    }
+
+    if (self.score < FG_STAGE_COMPLETION_THRESHOLD) {
+        return;
+    }
+
+    stageCompleted = YES;
+
+    [Score registerScore:self.score];
+
+    stageLabel.hidden = YES;
+    [stageLabel removeAllActions];
+    stageTransitionLabel.hidden = YES;
+    [stageTransitionLabel removeAllActions];
+
+    [self pauseGame];
+
+    if([self.gameDelegate respondsToSelector:@selector(eventStageCompleted:)]){
+        [self.gameDelegate eventStageCompleted:self.score];
+    }
+}
+
+- (void)requestStageExit
+{
+    if (![obstacleDirector allowsStageObstacleFamilies]) {
+        return;
+    }
+
+    [self pauseGame];
+
+    if([self.gameDelegate respondsToSelector:@selector(eventStageExitRequested)]){
+        [self.gameDelegate eventStageExitRequested];
     }
 }
 

@@ -14,6 +14,8 @@
 - (void) eventPlay;
 - (void) eventPause;
 - (void) eventWasted;
+- (void) eventStageCompleted:(NSInteger)finalScore;
+- (void) eventStageExitRequested;
 @end
 
 @interface Scene : SKScene<SKPhysicsContactDelegate>
@@ -34,5 +36,7 @@
 - (void) resumeGame;
 
 - (void) prepareToResume;
+
+- (void) requestStageExit;
 
 @end
