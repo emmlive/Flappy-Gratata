@@ -250,7 +250,7 @@
         NSString *birdID = bird[@"id"];
         NSString *birdName = bird[@"name"];
         NSString *rarity = bird[@"rarity"];
-        BOOL unlocked = [bird[@"defaultUnlocked"] boolValue];
+        BOOL unlocked = [BirdCatalog isBirdUnlocked:birdID];
 
         NSArray *textureNames =
             [BirdCatalog textureNamesForBirdID:birdID];
@@ -678,10 +678,8 @@
     }
 
     NSString *birdID = birdIDs[(NSUInteger)sender.tag];
-    NSDictionary *bird =
-        [BirdCatalog birdForID:birdID];
 
-    if (![bird[@"defaultUnlocked"] boolValue]) {
+    if (![BirdCatalog isBirdUnlocked:birdID]) {
         return;
     }
 

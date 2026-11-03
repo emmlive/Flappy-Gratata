@@ -25,6 +25,7 @@ extern NSString * const FGBirdSelectedDefaultsKey;
 
 + (NSDictionary *)birdForID:(NSString *)birdID;
 + (BOOL)isValidBirdID:(NSString *)birdID;
++ (BOOL)isBirdUnlocked:(NSString *)birdID;
 
 + (NSString *)selectedBirdID;
 + (void)setSelectedBirdID:(NSString *)birdID;
