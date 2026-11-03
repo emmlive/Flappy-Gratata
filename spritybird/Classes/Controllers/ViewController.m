@@ -28,9 +28,16 @@
 @property (strong, nonatomic) UILabel *bestScoreLabel;
 @property (strong, nonatomic) UIButton *btnHangar;
 @property (strong, nonatomic) UIButton *btnChallengeFriend;
+@property (strong, nonatomic) UIButton *btnPlayAgain;
 
 @property (strong, nonatomic) UIView *gameOverIntroView;
 @property (strong, nonatomic) UIButton *btnGameOverTryAgain;
+
+@property (strong, nonatomic) UIView *stageCompleteView;
+@property (strong, nonatomic) UILabel *stageCompleteScoreLabel;
+@property (strong, nonatomic) UIButton *btnStageComplete;
+
+@property (strong, nonatomic) UIButton *btnStageExit;
 
 @end
 
@@ -424,6 +431,32 @@
                        forControlEvents:UIControlEventTouchUpInside];
     [self.gameOverView addSubview:self.btnChallengeFriend];
 
+    self.btnPlayAgain = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnPlayAgain.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnPlayAgain.accessibilityLabel = @"Play Again";
+    [self.btnPlayAgain setTitle:@"PLAY AGAIN"
+                       forState:UIControlStateNormal];
+    [self.btnPlayAgain setTitleColor:[UIColor whiteColor]
+                            forState:UIControlStateNormal];
+    self.btnPlayAgain.titleLabel.font =
+        [UIFont boldSystemFontOfSize:15.0];
+    self.btnPlayAgain.backgroundColor =
+        [UIColor colorWithRed:0.05
+                        green:0.24
+                         blue:0.34
+                        alpha:0.96];
+    self.btnPlayAgain.layer.cornerRadius = 12.0;
+    self.btnPlayAgain.layer.borderWidth = 1.0;
+    self.btnPlayAgain.layer.borderColor =
+        [UIColor colorWithRed:0.25
+                        green:0.85
+                         blue:1.0
+                        alpha:0.75].CGColor;
+    [self.btnPlayAgain addTarget:self
+                           action:@selector(playAgainFunc:)
+                 forControlEvents:UIControlEventTouchUpInside];
+    [self.gameOverView addSubview:self.btnPlayAgain];
+
     self.gameOverIntroView = [[UIView alloc] initWithFrame:CGRectZero];
     self.gameOverIntroView.translatesAutoresizingMaskIntoConstraints = NO;
     self.gameOverIntroView.backgroundColor =
@@ -502,6 +535,118 @@
                        forControlEvents:UIControlEventTouchUpInside];
     [self.gameOverIntroView addSubview:self.btnGameOverTryAgain];
 
+    self.stageCompleteView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.stageCompleteView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.stageCompleteView.backgroundColor =
+        [UIColor colorWithRed:0.025
+                        green:0.060
+                         blue:0.115
+                        alpha:0.97];
+    self.stageCompleteView.layer.cornerRadius = 24.0;
+    self.stageCompleteView.layer.borderWidth = 1.0;
+    self.stageCompleteView.layer.borderColor =
+        [UIColor colorWithRed:0.30
+                        green:0.95
+                         blue:0.72
+                        alpha:0.66].CGColor;
+    self.stageCompleteView.layer.shadowColor =
+        [UIColor blackColor].CGColor;
+    self.stageCompleteView.layer.shadowOpacity = 0.32;
+    self.stageCompleteView.layer.shadowRadius = 18.0;
+    self.stageCompleteView.layer.shadowOffset = CGSizeMake(0.0, 9.0);
+    self.stageCompleteView.userInteractionEnabled = YES;
+    [rootView addSubview:self.stageCompleteView];
+
+    UILabel *stageCompleteTitle =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    stageCompleteTitle.translatesAutoresizingMaskIntoConstraints = NO;
+    stageCompleteTitle.text = @"STAGE COMPLETE";
+    stageCompleteTitle.textAlignment = NSTextAlignmentCenter;
+    stageCompleteTitle.textColor = [UIColor whiteColor];
+    stageCompleteTitle.font =
+        [UIFont systemFontOfSize:26.0
+                         weight:UIFontWeightHeavy];
+    stageCompleteTitle.adjustsFontSizeToFitWidth = YES;
+    stageCompleteTitle.minimumScaleFactor = 0.7;
+    [self.stageCompleteView addSubview:stageCompleteTitle];
+
+    UILabel *stageCompleteDetail =
+        [[UILabel alloc] initWithFrame:CGRectZero];
+    stageCompleteDetail.translatesAutoresizingMaskIntoConstraints = NO;
+    stageCompleteDetail.text = @"ALL 3 STAGES CLEARED";
+    stageCompleteDetail.textAlignment = NSTextAlignmentCenter;
+    stageCompleteDetail.textColor =
+        [UIColor colorWithRed:0.30
+                        green:0.95
+                         blue:0.72
+                        alpha:1.0];
+    stageCompleteDetail.font =
+        [UIFont systemFontOfSize:12.0
+                         weight:UIFontWeightSemibold];
+    [self.stageCompleteView addSubview:stageCompleteDetail];
+
+    self.stageCompleteScoreLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.stageCompleteScoreLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.stageCompleteScoreLabel.text = @"0";
+    self.stageCompleteScoreLabel.textAlignment = NSTextAlignmentCenter;
+    self.stageCompleteScoreLabel.textColor = [UIColor whiteColor];
+    self.stageCompleteScoreLabel.font =
+        [UIFont systemFontOfSize:34.0
+                         weight:UIFontWeightBold];
+    [self.stageCompleteView addSubview:self.stageCompleteScoreLabel];
+
+    self.btnStageComplete = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnStageComplete.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnStageComplete.accessibilityLabel = @"Continue";
+    [self.btnStageComplete setTitle:@"CONTINUE"
+                           forState:UIControlStateNormal];
+    [self.btnStageComplete setTitleColor:[UIColor whiteColor]
+                                forState:UIControlStateNormal];
+    self.btnStageComplete.titleLabel.font =
+        [UIFont boldSystemFontOfSize:17.0];
+    self.btnStageComplete.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.btnStageComplete.titleLabel.minimumScaleFactor = 0.78;
+    self.btnStageComplete.backgroundColor =
+        [UIColor colorWithRed:0.05
+                        green:0.30
+                         blue:0.24
+                        alpha:0.96];
+    self.btnStageComplete.layer.cornerRadius = 14.0;
+    self.btnStageComplete.layer.borderWidth = 1.0;
+    self.btnStageComplete.layer.borderColor =
+        [UIColor colorWithRed:0.30
+                        green:0.95
+                         blue:0.72
+                        alpha:0.85].CGColor;
+    [self.btnStageComplete addTarget:self
+                               action:@selector(stageCompleteContinue:)
+                     forControlEvents:UIControlEventTouchUpInside];
+    [self.stageCompleteView addSubview:self.btnStageComplete];
+
+    self.btnStageExit = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.btnStageExit.translatesAutoresizingMaskIntoConstraints = NO;
+    self.btnStageExit.accessibilityLabel = @"Exit Stage Mode";
+    [self.btnStageExit setTitle:@"EXIT"
+                       forState:UIControlStateNormal];
+    [self.btnStageExit setTitleColor:[UIColor whiteColor]
+                            forState:UIControlStateNormal];
+    self.btnStageExit.titleLabel.font =
+        [UIFont boldSystemFontOfSize:12.0];
+    self.btnStageExit.backgroundColor =
+        [UIColor colorWithRed:0.07
+                        green:0.09
+                         blue:0.12
+                        alpha:0.78];
+    self.btnStageExit.layer.cornerRadius = 13.0;
+    self.btnStageExit.layer.borderWidth = 1.0;
+    self.btnStageExit.layer.borderColor =
+        [UIColor colorWithWhite:0.80 alpha:0.42].CGColor;
+    self.btnStageExit.hidden = YES;
+    [self.btnStageExit addTarget:self
+                           action:@selector(stageModeExit:)
+                 forControlEvents:UIControlEventTouchUpInside];
+    [rootView addSubview:self.btnStageExit];
+
     UILayoutGuide *safeArea = rootView.safeAreaLayoutGuide;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -577,7 +722,7 @@
         [self.gameOverView.centerYAnchor constraintEqualToAnchor:safeArea.centerYAnchor],
         [self.gameOverView.widthAnchor constraintEqualToConstant:320.0],
         [self.gameOverView.widthAnchor constraintLessThanOrEqualToAnchor:safeArea.widthAnchor],
-        [self.gameOverView.heightAnchor constraintEqualToConstant:390.0],
+        [self.gameOverView.heightAnchor constraintEqualToConstant:412.0],
 
         [gameOverImage.topAnchor constraintEqualToAnchor:self.gameOverView.topAnchor],
         [gameOverImage.centerXAnchor constraintEqualToAnchor:self.gameOverView.centerXAnchor],
@@ -637,6 +782,15 @@
         [self.btnChallengeFriend.widthAnchor constraintEqualToConstant:132.0],
         [self.btnChallengeFriend.heightAnchor constraintEqualToConstant:42.0],
 
+        [self.btnPlayAgain.topAnchor constraintEqualToAnchor:self.btnChallengeFriend.bottomAnchor
+                                                     constant:14.0],
+        [self.btnPlayAgain.centerXAnchor constraintEqualToAnchor:self.gameOverView.centerXAnchor],
+        [self.btnPlayAgain.leadingAnchor constraintEqualToAnchor:self.gameOverView.leadingAnchor
+                                                         constant:20.0],
+        [self.btnPlayAgain.trailingAnchor constraintEqualToAnchor:self.gameOverView.trailingAnchor
+                                                          constant:-20.0],
+        [self.btnPlayAgain.heightAnchor constraintEqualToConstant:40.0],
+
         [self.gameOverIntroView.centerXAnchor constraintEqualToAnchor:safeArea.centerXAnchor],
         [self.gameOverIntroView.centerYAnchor constraintEqualToAnchor:safeArea.centerYAnchor],
         [self.gameOverIntroView.widthAnchor constraintEqualToConstant:300.0],
@@ -661,7 +815,45 @@
                                                            constant:24.0],
         [self.btnGameOverTryAgain.centerXAnchor constraintEqualToAnchor:self.gameOverIntroView.centerXAnchor],
         [self.btnGameOverTryAgain.widthAnchor constraintEqualToConstant:216.0],
-        [self.btnGameOverTryAgain.heightAnchor constraintEqualToConstant:52.0]
+        [self.btnGameOverTryAgain.heightAnchor constraintEqualToConstant:52.0],
+
+        [self.stageCompleteView.centerXAnchor constraintEqualToAnchor:safeArea.centerXAnchor],
+        [self.stageCompleteView.centerYAnchor constraintEqualToAnchor:safeArea.centerYAnchor],
+        [self.stageCompleteView.widthAnchor constraintEqualToConstant:300.0],
+        [self.stageCompleteView.widthAnchor constraintLessThanOrEqualToAnchor:safeArea.widthAnchor],
+        [self.stageCompleteView.heightAnchor constraintEqualToConstant:270.0],
+
+        [stageCompleteTitle.topAnchor constraintEqualToAnchor:self.stageCompleteView.topAnchor
+                                                      constant:26.0],
+        [stageCompleteTitle.leadingAnchor constraintEqualToAnchor:self.stageCompleteView.leadingAnchor
+                                                          constant:20.0],
+        [stageCompleteTitle.trailingAnchor constraintEqualToAnchor:self.stageCompleteView.trailingAnchor
+                                                           constant:-20.0],
+        [stageCompleteTitle.heightAnchor constraintEqualToConstant:34.0],
+
+        [stageCompleteDetail.topAnchor constraintEqualToAnchor:stageCompleteTitle.bottomAnchor
+                                                       constant:4.0],
+        [stageCompleteDetail.leadingAnchor constraintEqualToAnchor:stageCompleteTitle.leadingAnchor],
+        [stageCompleteDetail.trailingAnchor constraintEqualToAnchor:stageCompleteTitle.trailingAnchor],
+        [stageCompleteDetail.heightAnchor constraintEqualToConstant:18.0],
+
+        [self.stageCompleteScoreLabel.topAnchor constraintEqualToAnchor:stageCompleteDetail.bottomAnchor
+                                                                constant:18.0],
+        [self.stageCompleteScoreLabel.centerXAnchor constraintEqualToAnchor:self.stageCompleteView.centerXAnchor],
+        [self.stageCompleteScoreLabel.heightAnchor constraintEqualToConstant:44.0],
+
+        [self.btnStageComplete.topAnchor constraintEqualToAnchor:self.stageCompleteScoreLabel.bottomAnchor
+                                                         constant:22.0],
+        [self.btnStageComplete.centerXAnchor constraintEqualToAnchor:self.stageCompleteView.centerXAnchor],
+        [self.btnStageComplete.widthAnchor constraintEqualToConstant:216.0],
+        [self.btnStageComplete.heightAnchor constraintEqualToConstant:52.0],
+
+        [self.btnStageExit.topAnchor constraintEqualToAnchor:safeArea.topAnchor
+                                                     constant:12.0],
+        [self.btnStageExit.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor
+                                                          constant:-16.0],
+        [self.btnStageExit.widthAnchor constraintEqualToConstant:64.0],
+        [self.btnStageExit.heightAnchor constraintEqualToConstant:26.0]
     ]];
 }
 
@@ -676,6 +868,11 @@
     self.gameOverIntroView.transform = CGAffineTransformMakeScale(.9, .9);
     self.gameOverIntroView.hidden = YES;
     self.gameOverIntroView.userInteractionEnabled = YES;
+    self.stageCompleteView.alpha = 0;
+    self.stageCompleteView.transform = CGAffineTransformMakeScale(.9, .9);
+    self.stageCompleteView.hidden = YES;
+    self.stageCompleteView.userInteractionEnabled = YES;
+    self.btnStageExit.hidden = YES;
     self.btnStageMode.alpha = 1;
     self.challengeTransport = [[FGChallengeTransport alloc] init];
     [self.challengeTransport setPresentationViewController:self];
@@ -709,6 +906,8 @@
     scene.gameDelegate = self;
 
     [self.gameView presentScene:scene];
+
+    self.btnStageExit.hidden = NO;
 }
 
 -(void)viewWillAppear:(BOOL)animated{
@@ -740,6 +939,8 @@
         self.gameOverView.transform = CGAffineTransformMakeScale(.8, .8);
         self.gameOverIntroView.alpha = 0;
         self.gameOverIntroView.transform = CGAffineTransformMakeScale(.8, .8);
+        self.stageCompleteView.alpha = 0;
+        self.stageCompleteView.transform = CGAffineTransformMakeScale(.8, .8);
         flash.alpha = 0;
         self.getReadyView.alpha = 1;
         self.btnStageMode.alpha = 1;
@@ -747,6 +948,8 @@
         [flash removeFromSuperview];
         self.gameOverIntroView.hidden = YES;
         self.gameOverIntroView.userInteractionEnabled = YES;
+        self.stageCompleteView.hidden = YES;
+        self.stageCompleteView.userInteractionEnabled = YES;
 
     }];
     
@@ -778,7 +981,8 @@
     
     [self shakeFrame];
     playerScore = [F(@"%li",(long)scene.score) intValue];//----Set player Current Score
-    
+    self.btnStageExit.hidden = YES;
+
     // Stage 1: results/options panel stays hidden until TRY AGAIN.
     self.gameOverView.alpha = 0;
     self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
@@ -824,7 +1028,7 @@
     self.gameOverIntroView.userInteractionEnabled = NO;
     self.gameOverView.userInteractionEnabled = YES;
     self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
-    
+
     [UIView animateWithDuration:.28 animations:^{
         // Stage 2: reveal the existing results/options panel
         self.gameOverIntroView.alpha = 0;
@@ -833,6 +1037,83 @@
     } completion:^(BOOL finished) {
         self.gameOverIntroView.hidden = YES;
     }];
+}
+
+- (void)eventStageCompleted:(NSInteger)finalScore
+{
+    self.btnStageExit.hidden = YES;
+
+    // Successful completion: results/options panel stays hidden until CONTINUE.
+    self.gameOverView.alpha = 0;
+    self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
+    self.stageCompleteView.hidden = NO;
+    self.stageCompleteView.userInteractionEnabled = YES;
+    self.stageCompleteView.transform = CGAffineTransformMakeScale(.9, .9);
+
+    self.stageCompleteScoreLabel.text = F(@"%li", (long)finalScore);
+
+    [UIView animateWithDuration:.5 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+
+        self.stageCompleteView.alpha = 1;
+        self.stageCompleteView.transform = CGAffineTransformMakeScale(1, 1);
+
+        // Set medal
+        if(finalScore >= 40){
+            self.medalImageView.image = [UIImage imageNamed:@"medal_platinum"];
+        }else if (finalScore >= 30){
+            self.medalImageView.image = [UIImage imageNamed:@"medal_gold"];
+        }else if (finalScore >= 20){
+            self.medalImageView.image = [UIImage imageNamed:@"medal_silver"];
+        }else if (finalScore >= 1){
+            self.medalImageView.image = [UIImage imageNamed:@"medal_bronze"];
+        }else{
+            self.medalImageView.image = nil;
+        }
+
+        // Set scores
+        self.currentScore.text = F(@"%li", (long)finalScore);
+        self.bestScoreLabel.text = F(@"%li",(long)[Score bestScore]);
+
+    } completion:nil];
+}
+
+- (void)stageCompleteContinue:(id)sender
+{
+    self.stageCompleteView.userInteractionEnabled = NO;
+    self.gameOverView.userInteractionEnabled = YES;
+    self.gameOverView.transform = CGAffineTransformMakeScale(.9, .9);
+
+    [UIView animateWithDuration:.28 animations:^{
+        // Reveal the existing results/options panel
+        self.stageCompleteView.alpha = 0;
+        self.gameOverView.alpha = 1;
+        self.gameOverView.transform = CGAffineTransformMakeScale(1, 1);
+    } completion:^(BOOL finished) {
+        self.stageCompleteView.hidden = YES;
+    }];
+}
+
+- (void)stageModeExit:(id)sender
+{
+    [scene requestStageExit];
+}
+
+- (void)playAgainFunc:(id)sender
+{
+    [self eventStageExitRequested];
+}
+
+- (void)eventStageExitRequested
+{
+    self.btnStageExit.hidden = YES;
+
+    scene = [Scene sceneWithSize:self.gameView.bounds.size];
+    scene.scaleMode = SKSceneScaleModeAspectFill;
+    scene.gameDelegate = self;
+
+    [self.gameView presentScene:scene];
+
+    [self eventStart:NO];
 }
 
 - (void) shakeFrame
