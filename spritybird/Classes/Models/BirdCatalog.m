@@ -6,6 +6,7 @@
 //
 
 #import "BirdCatalog.h"
+#import "Score.h"
 
 NSString * const FGBirdIDClassic = @"classic";
 NSString * const FGBirdIDNeon = @"neon";
@@ -28,6 +29,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Classic Gratata",
             @"rarity" : @"common",
             @"defaultUnlocked" : @YES,
+            @"requiredStageCompletionCount" : @0,
             @"textures" : @[
                 @"bird_1",
                 @"bird_2",
@@ -39,6 +41,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Neon Gratata",
             @"rarity" : @"common",
             @"defaultUnlocked" : @NO,
+            @"requiredStageCompletionCount" : @1,
             @"textures" : @[
                 @"bird_neon_1",
                 @"bird_neon_2",
@@ -50,6 +53,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Gold Gratata",
             @"rarity" : @"rare",
             @"defaultUnlocked" : @NO,
+            @"requiredStageCompletionCount" : @3,
             @"textures" : @[
                 @"bird_gold_1",
                 @"bird_gold_2",
@@ -61,6 +65,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Arctic Gratata",
             @"rarity" : @"rare",
             @"defaultUnlocked" : @NO,
+            @"requiredStageCompletionCount" : @5,
             @"textures" : @[
                 @"bird_arctic_1",
                 @"bird_arctic_2",
@@ -72,6 +77,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Sunset Gratata",
             @"rarity" : @"epic",
             @"defaultUnlocked" : @NO,
+            @"requiredStageCompletionCount" : @8,
             @"textures" : @[
                 @"bird_sunset_1",
                 @"bird_sunset_2",
@@ -83,6 +89,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Cyber Gratata",
             @"rarity" : @"epic",
             @"defaultUnlocked" : @NO,
+            @"requiredStageCompletionCount" : @12,
             @"textures" : @[
                 @"bird_cyber_1",
                 @"bird_cyber_2",
@@ -94,6 +101,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Academy Gratata",
             @"rarity" : @"epic",
             @"defaultUnlocked" : @NO,
+            @"requiredStageCompletionCount" : @18,
             @"textures" : @[
                 @"bird_academy_1",
                 @"bird_academy_2",
@@ -105,6 +113,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             @"name" : @"Legendary Gratata",
             @"rarity" : @"legendary",
             @"defaultUnlocked" : @NO,
+            @"requiredStageCompletionCount" : @25,
             @"textures" : @[
                 @"bird_legendary_1",
                 @"bird_legendary_2",
@@ -149,6 +158,26 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
     return [self birdForID:birdID] != nil;
 }
 
++ (BOOL)isBirdUnlocked:(NSString *)birdID
+{
+    NSDictionary *bird = [self birdForID:birdID];
+
+    if (!bird) {
+        return NO;
+    }
+
+    if ([bird[@"defaultUnlocked"] boolValue]) {
+        return YES;
+    }
+
+    NSInteger requiredStageCompletionCount =
+        [bird[@"requiredStageCompletionCount"] integerValue];
+
+    NSInteger completionCount = [Score stageModeCompletionCount];
+
+    return completionCount >= requiredStageCompletionCount;
+}
+
 + (NSString *)selectedBirdID
 {
     id storedValue =
@@ -156,7 +185,8 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
             objectForKey:FGBirdSelectedDefaultsKey];
 
     if ([storedValue isKindOfClass:[NSString class]]
-        && [self isValidBirdID:(NSString *)storedValue]) {
+        && [self isValidBirdID:(NSString *)storedValue]
+        && [self isBirdUnlocked:(NSString *)storedValue]) {
         return (NSString *)storedValue;
     }
 
@@ -166,7 +196,7 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
 + (void)setSelectedBirdID:(NSString *)birdID
 {
     NSString *safeBirdID =
-        [self isValidBirdID:birdID]
+        ([self isValidBirdID:birdID] && [self isBirdUnlocked:birdID])
             ? birdID
             : FGBirdIDClassic;
 
