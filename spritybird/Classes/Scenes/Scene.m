@@ -618,6 +618,7 @@ static bool wasted = NO;
     stageCompleted = YES;
 
     [Score registerScore:self.score];
+    [Score registerStageModeCompletion];
 
     stageLabel.hidden = YES;
     [stageLabel removeAllActions];

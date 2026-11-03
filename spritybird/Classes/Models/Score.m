@@ -28,4 +28,16 @@
     return [[NSUserDefaults standardUserDefaults] integerForKey:kBestScoreKey];
 }
 
++ (NSInteger) stageModeCompletionCount
+{
+    return [[NSUserDefaults standardUserDefaults] integerForKey:kStageModeCompletionCountKey];
+}
+
++ (void) registerStageModeCompletion
+{
+    NSInteger updatedCount = [Score stageModeCompletionCount] + 1;
+    [[NSUserDefaults standardUserDefaults] setInteger:updatedCount forKey:kStageModeCompletionCountKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
 @end
