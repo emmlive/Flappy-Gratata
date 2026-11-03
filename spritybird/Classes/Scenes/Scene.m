@@ -42,6 +42,7 @@
     SKLabelNode * scoreLabel;
     SKLabelNode * skyBrakeIndicator;
     SKLabelNode * stageLabel;
+    SKLabelNode * stageTransitionLabel;
     SKShapeNode * skyBrakeEffect;
     BirdNode * bird;
     
@@ -137,7 +138,12 @@ static bool wasted = NO;
     wasted = YES;
     _gamePaused = NO;
     [Score registerScore:self.score];
-    
+
+    stageLabel.hidden = YES;
+    [stageLabel removeAllActions];
+    stageTransitionLabel.hidden = YES;
+    [stageTransitionLabel removeAllActions];
+
     if([self.gameDelegate respondsToSelector:@selector(eventWasted)]){
         [self.gameDelegate eventWasted];
     }
@@ -271,6 +277,27 @@ static bool wasted = NO;
     stageLabel.hidden = ![obstacleDirector allowsStageObstacleFamilies];
 
     [self addChild:stageLabel];
+
+    stageTransitionLabel = [SKLabelNode labelNodeWithFontNamed:@"Futura-Medium"];
+
+    stageTransitionLabel.fontSize = 34.0;
+    stageTransitionLabel.horizontalAlignmentMode =
+        SKLabelHorizontalAlignmentModeCenter;
+    stageTransitionLabel.verticalAlignmentMode =
+        SKLabelVerticalAlignmentModeCenter;
+    stageTransitionLabel.position =
+        CGPointMake(CGRectGetMidX(self.frame), HEIGHT(self) - 90.0);
+    stageTransitionLabel.zPosition = 21.0;
+    stageTransitionLabel.alpha = 0.0;
+    stageTransitionLabel.fontColor =
+        [UIColor colorWithRed:0.72
+                        green:0.55
+                         blue:1.0
+                        alpha:1.0];
+    stageTransitionLabel.text = @"";
+    stageTransitionLabel.hidden = ![obstacleDirector allowsStageObstacleFamilies];
+
+    [self addChild:stageTransitionLabel];
 }
 
 
@@ -591,28 +618,48 @@ static bool wasted = NO;
 
 - (void)presentStageProgressionFeedback
 {
-    if (!stageLabel) {
+    if (stageLabel) {
+        [stageLabel removeActionForKey:@"stageProgressionPulse"];
+        stageLabel.xScale = 1.0;
+        stageLabel.yScale = 1.0;
+
+        SKAction *pulseUp =
+            [SKAction group:@[
+                [SKAction scaleTo:1.3 duration:0.16],
+                [SKAction fadeAlphaTo:1.0 duration:0.16]
+            ]];
+
+        SKAction *pulseDown =
+            [SKAction group:@[
+                [SKAction scaleTo:1.0 duration:0.2],
+                [SKAction fadeAlphaTo:0.92 duration:0.2]
+            ]];
+
+        [stageLabel runAction:[SKAction sequence:@[pulseUp, pulseDown]]
+                       withKey:@"stageProgressionPulse"];
+    }
+
+    if (!stageTransitionLabel) {
         return;
     }
 
-    [stageLabel removeActionForKey:@"stageProgressionPulse"];
-    stageLabel.xScale = 1.0;
-    stageLabel.yScale = 1.0;
+    stageTransitionLabel.text =
+        [NSString stringWithFormat:@"STAGE %ld", (long)self.currentStage];
+    [stageTransitionLabel removeActionForKey:@"stageTransitionCue"];
+    stageTransitionLabel.alpha = 0.0;
+    stageTransitionLabel.xScale = 0.86;
+    stageTransitionLabel.yScale = 0.86;
 
-    SKAction *pulseUp =
+    SKAction *appear =
         [SKAction group:@[
-            [SKAction scaleTo:1.6 duration:0.18],
-            [SKAction fadeAlphaTo:1.0 duration:0.18]
+            [SKAction fadeAlphaTo:1.0 duration:0.22],
+            [SKAction scaleTo:1.0 duration:0.22]
         ]];
+    SKAction *hold = [SKAction waitForDuration:0.5];
+    SKAction *disappear = [SKAction fadeAlphaTo:0.0 duration:0.3];
 
-    SKAction *pulseDown =
-        [SKAction group:@[
-            [SKAction scaleTo:1.0 duration:0.22],
-            [SKAction fadeAlphaTo:0.92 duration:0.22]
-        ]];
-
-    [stageLabel runAction:[SKAction sequence:@[pulseUp, pulseDown]]
-                   withKey:@"stageProgressionPulse"];
+    [stageTransitionLabel runAction:[SKAction sequence:@[appear, hold, disappear]]
+                             withKey:@"stageTransitionCue"];
 }
 
 #pragma mark - Sky Brake
