@@ -7,11 +7,15 @@
 //
 
 #define kBestScoreKey @"BestScore"
+#define kStageModeCompletionCountKey @"StageModeCompletionCount"
 
 @interface Score : NSObject
 
 + (void) registerScore:(NSInteger) score;
 + (void) setBestScore:(NSInteger) bestScore;
 + (NSInteger) bestScore;
+
++ (NSInteger) stageModeCompletionCount;
++ (void) registerStageModeCompletion;
 
 @end
