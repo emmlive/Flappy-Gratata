@@ -18,5 +18,6 @@ typedef NS_ENUM(NSInteger, FGObstacleMode) {
 - (BOOL)allowsStageObstacleFamilies;
 - (CGFloat)stageCloudGateGapHeight;
 - (BOOL)allowsStage2OffsetDoubleGate;
+- (BOOL)allowsStage3MovingGate;
 
 @end

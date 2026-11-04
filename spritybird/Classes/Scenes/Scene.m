@@ -11,6 +11,7 @@
 #import "BirdNode.h"
 #import "Score.h"
 #import "FGCloudGateObstacle.h"
+#import "FGMovingGateObstacle.h"
 #import "FGObstacleDirector.h"
 #import <math.h>
 
@@ -31,6 +32,11 @@
 #define STAGE2_DOUBLE_GATE_CADENCE_PERIOD 3
 #define STAGE2_DOUBLE_GATE_PAIR_SPACING 70.0
 #define STAGE2_DOUBLE_GATE_VERTICAL_OFFSET 26.0
+
+// Stage 3 moving gate (Stage 3 only; Classic/Stage1/Stage2 unaffected)
+#define STAGE3_MOVING_GATE_CADENCE_PERIOD 2
+#define STAGE3_MOVING_GATE_AMPLITUDE 20.0
+#define STAGE3_MOVING_GATE_MIN_VIABLE_AMPLITUDE 6.0
 
 // Stage progression
 #define FG_STAGE_PROGRESSION_FIRST_THRESHOLD 5
@@ -57,6 +63,7 @@
     NSMutableArray * gameplayObstacles;
     FGObstacleDirector * obstacleDirector;
     NSInteger stage2PlacementSequence;
+    NSInteger stage3PlacementSequence;
     
     BOOL _gamePaused;
     BOOL stageCompleted;
@@ -116,6 +123,7 @@ static bool wasted = NO;
     obstacleDirector.currentStage = 1;
     stageCompleted = NO;
     stage2PlacementSequence = 0;
+    stage3PlacementSequence = 0;
 
     skyBrakeActive = NO;
     skyBrakeTouchHeld = NO;
@@ -436,7 +444,14 @@ static bool wasted = NO;
 
         stage2PlacementSequence++;
 
-        FGCloudGateObstacle * cloudGate = [[FGCloudGateObstacle alloc] initWithBottomPipe:bottomPipe topPipe:topPipe];
+        BOOL placeAsStage3MovingGate =
+            [self shouldPlaceStage3MovingGateAtSequence:stage3PlacementSequence];
+        stage3PlacementSequence++;
+
+        FGCloudGateObstacle * cloudGate =
+            [self stage3ObstacleWithBottomPipe:bottomPipe
+                                        topPipe:topPipe
+                              placeAsMovingGate:placeAsStage3MovingGate];
         [gameplayObstacles addObject:cloudGate];
 
         lastBlockPos = topPipe.position.x;
@@ -452,6 +467,47 @@ static bool wasted = NO;
 
     return (sequence % STAGE2_DOUBLE_GATE_CADENCE_PERIOD) ==
         (STAGE2_DOUBLE_GATE_CADENCE_PERIOD - 1);
+}
+
+- (BOOL)shouldPlaceStage3MovingGateAtSequence:(NSInteger)sequence
+{
+    if (![obstacleDirector allowsStage3MovingGate]) {
+        return NO;
+    }
+
+    return (sequence % STAGE3_MOVING_GATE_CADENCE_PERIOD) ==
+        (STAGE3_MOVING_GATE_CADENCE_PERIOD - 1);
+}
+
+- (FGCloudGateObstacle *)stage3ObstacleWithBottomPipe:(SKSpriteNode *)bottomPipe
+                                               topPipe:(SKSpriteNode *)topPipe
+                                     placeAsMovingGate:(BOOL)placeAsMovingGate
+{
+    if (!placeAsMovingGate) {
+        return [[FGCloudGateObstacle alloc] initWithBottomPipe:bottomPipe topPipe:topPipe];
+    }
+
+    CGFloat cloudGateGapHeight = [obstacleDirector stageCloudGateGapHeight];
+    CGFloat availableSpace = HEIGHT(self) - HEIGHT(floor);
+    CGFloat maxVariance =
+        availableSpace - (2*OBSTACLE_MIN_HEIGHT) - cloudGateGapHeight;
+    CGFloat minBottomPosY = HEIGHT(floor) + OBSTACLE_MIN_HEIGHT - HEIGHT(self);
+    CGFloat maxBottomPosY = minBottomPosY + maxVariance;
+
+    CGFloat currentBottomPosY = bottomPipe.position.y;
+    CGFloat headroom =
+        MIN(currentBottomPosY - minBottomPosY, maxBottomPosY - currentBottomPosY);
+    CGFloat safeAmplitude = MIN((CGFloat)STAGE3_MOVING_GATE_AMPLITUDE, headroom);
+
+    if (safeAmplitude < STAGE3_MOVING_GATE_MIN_VIABLE_AMPLITUDE) {
+        // Fairness fallback: not enough legal headroom to oscillate safely,
+        // so this placement stays a static gate instead.
+        return [[FGCloudGateObstacle alloc] initWithBottomPipe:bottomPipe topPipe:topPipe];
+    }
+
+    return [[FGMovingGateObstacle alloc] initWithBottomPipe:bottomPipe
+                                                      topPipe:topPipe
+                                                    amplitude:safeAmplitude];
 }
 
 #pragma mark - Interaction 
@@ -595,7 +651,19 @@ static bool wasted = NO;
 
             stage2PlacementSequence++;
 
-            [cloudGate resetForReuseAtX:recycledX];
+            BOOL recycleAsStage3MovingGate =
+                [self shouldPlaceStage3MovingGateAtSequence:stage3PlacementSequence];
+            stage3PlacementSequence++;
+
+            if ([obstacleDirector allowsStage3MovingGate]) {
+                cloudGate =
+                    [self stage3ObstacleWithBottomPipe:cloudGate.bottomPipe
+                                                topPipe:cloudGate.topPipe
+                                      placeAsMovingGate:recycleAsStage3MovingGate];
+                gameplayObstacles[i] = cloudGate;
+            } else {
+                [cloudGate resetForReuseAtX:recycledX];
+            }
         }
 
         [cloudGate updateWithScrollDelta:FLOOR_SCROLLING_SPEED];

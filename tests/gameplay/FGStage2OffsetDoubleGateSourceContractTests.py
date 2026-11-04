@@ -55,15 +55,18 @@ class FGStage2OffsetDoubleGateSourceContractTests(unittest.TestCase):
             "(false for Classic, Stage 1, and Stage 3).",
         )
 
-    # 6. Existing FGCloudGateObstacle reused; no second obstacle class.
+    # 6. Existing FGCloudGateObstacle reused for the Stage 2 double gate.
     def test_reuses_existing_cloud_gate_class(self):
         self.assertIn(
             "[[FGCloudGateObstacle alloc] initWithBottomPipe:bottomPipe topPipe:topPipe]",
             self.scene_m,
-            "Scene must continue constructing the existing FGCloudGateObstacle, "
-            "not a new obstacle class.",
+            "Scene must continue constructing the existing FGCloudGateObstacle "
+            "for the Stage 2 double gate.",
         )
-        self.assertNotIn("FGMovingGateObstacle", self.scene_m)
+        # FGCloudGateObstacle.m itself must remain untouched by any other
+        # obstacle family (e.g. a later Stage 3 moving gate); Scene.m may
+        # legitimately reference other families added by later, separately
+        # scoped gates.
         self.assertNotIn("FGMovingGateObstacle", self.cloud_gate_m)
 
     # 7. No new obstacle sprite asset required.

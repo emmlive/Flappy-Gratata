@@ -58,4 +58,9 @@
     return self.mode == FGObstacleModeStage && self.currentStage == 2;
 }
 
+- (BOOL)allowsStage3MovingGate
+{
+    return self.mode == FGObstacleModeStage && self.currentStage == 3;
+}
+
 @end
