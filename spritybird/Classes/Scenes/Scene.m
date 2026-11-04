@@ -12,6 +12,7 @@
 #import "Score.h"
 #import "FGCloudGateObstacle.h"
 #import "FGObstacleDirector.h"
+#import <math.h>
 
 #define BACK_SCROLLING_SPEED 0
 #define FLOOR_SCROLLING_SPEED 3
@@ -25,6 +26,11 @@
 #define SKY_BRAKE_DURATION 1.6
 #define SKY_BRAKE_COOLDOWN 8.0
 #define SKY_BRAKE_DOUBLE_TOUCH_WINDOW 0.28
+
+// Stage 2 offset double gate (Stage 2 only; Classic/Stage1/Stage3 unaffected)
+#define STAGE2_DOUBLE_GATE_CADENCE_PERIOD 3
+#define STAGE2_DOUBLE_GATE_PAIR_SPACING 70.0
+#define STAGE2_DOUBLE_GATE_VERTICAL_OFFSET 26.0
 
 // Stage progression
 #define FG_STAGE_PROGRESSION_FIRST_THRESHOLD 5
@@ -50,6 +56,7 @@
     int nbObstacles;
     NSMutableArray * gameplayObstacles;
     FGObstacleDirector * obstacleDirector;
+    NSInteger stage2PlacementSequence;
     
     BOOL _gamePaused;
     BOOL stageCompleted;
@@ -108,6 +115,7 @@ static bool wasted = NO;
     self.currentStage = 1;
     obstacleDirector.currentStage = 1;
     stageCompleted = NO;
+    stage2PlacementSequence = 0;
 
     skyBrakeActive = NO;
     skyBrakeTouchHeld = NO;
@@ -373,6 +381,7 @@ static bool wasted = NO;
 
     gameplayObstacles = @[].mutableCopy;
     CGFloat lastBlockPos = 0;
+    CGFloat lastBottomPosY = 0;
 
     BOOL legacyClassicCloudGateOnly =
         [obstacleDirector legacyClassicUsesCloudGateOnly];
@@ -403,16 +412,46 @@ static bool wasted = NO;
                     and:topPipe
                     atX:WIDTH(self)+FIRST_OBSTACLE_PADDING];
         }else{
-            [self place:bottomPipe
-                    and:topPipe
-                    atX:lastBlockPos + WIDTH(bottomPipe) + OBSTACLE_INTERVAL_SPACE];
+            BOOL placeAsStage2DoubleGate =
+                [self shouldPlaceStage2OffsetDoubleGateAtSequence:stage2PlacementSequence];
+
+            CGFloat horizontalSpacing =
+                placeAsStage2DoubleGate
+                    ? STAGE2_DOUBLE_GATE_PAIR_SPACING
+                    : OBSTACLE_INTERVAL_SPACE;
+
+            CGFloat xPos = lastBlockPos + WIDTH(bottomPipe) + horizontalSpacing;
+
+            if (placeAsStage2DoubleGate) {
+                [self place:bottomPipe
+                        and:topPipe
+                        atX:xPos
+                        verticalOffsetFromPreviousBottomY:lastBottomPosY];
+            } else {
+                [self place:bottomPipe
+                        and:topPipe
+                        atX:xPos];
+            }
         }
+
+        stage2PlacementSequence++;
 
         FGCloudGateObstacle * cloudGate = [[FGCloudGateObstacle alloc] initWithBottomPipe:bottomPipe topPipe:topPipe];
         [gameplayObstacles addObject:cloudGate];
 
         lastBlockPos = topPipe.position.x;
+        lastBottomPosY = bottomPipe.position.y;
     }
+}
+
+- (BOOL)shouldPlaceStage2OffsetDoubleGateAtSequence:(NSInteger)sequence
+{
+    if (![obstacleDirector allowsStage2OffsetDoubleGate]) {
+        return NO;
+    }
+
+    return (sequence % STAGE2_DOUBLE_GATE_CADENCE_PERIOD) ==
+        (STAGE2_DOUBLE_GATE_CADENCE_PERIOD - 1);
 }
 
 #pragma mark - Interaction 
@@ -530,14 +569,31 @@ static bool wasted = NO;
                 (FGCloudGateObstacle *)
                 gameplayObstacles[(i+(nbObstacles-1))%nbObstacles];
 
+            BOOL recycleAsStage2DoubleGate =
+                [self shouldPlaceStage2OffsetDoubleGateAtSequence:stage2PlacementSequence];
+
+            CGFloat horizontalSpacing =
+                recycleAsStage2DoubleGate
+                    ? STAGE2_DOUBLE_GATE_PAIR_SPACING
+                    : OBSTACLE_INTERVAL_SPACE;
+
             CGFloat recycledX =
                 X(mostRightObstacle.topPipe) +
                 WIDTH(cloudGate.topPipe) +
-                OBSTACLE_INTERVAL_SPACE;
+                horizontalSpacing;
 
-            [self place:cloudGate.bottomPipe
-                    and:cloudGate.topPipe
-                    atX:recycledX];
+            if (recycleAsStage2DoubleGate) {
+                [self place:cloudGate.bottomPipe
+                        and:cloudGate.topPipe
+                        atX:recycledX
+                        verticalOffsetFromPreviousBottomY:mostRightObstacle.bottomPipe.position.y];
+            } else {
+                [self place:cloudGate.bottomPipe
+                        and:cloudGate.topPipe
+                        atX:recycledX];
+            }
+
+            stage2PlacementSequence++;
 
             [cloudGate resetForReuseAtX:recycledX];
         }
@@ -547,6 +603,14 @@ static bool wasted = NO;
 }
 
 - (void) place:(SKSpriteNode *) bottomPipe and:(SKSpriteNode *) topPipe atX:(float) xPos
+{
+    [self place:bottomPipe and:topPipe atX:xPos verticalOffsetFromPreviousBottomY:NAN];
+}
+
+- (void) place:(SKSpriteNode *) bottomPipe
+            and:(SKSpriteNode *) topPipe
+            atX:(float) xPos
+verticalOffsetFromPreviousBottomY:(float) previousBottomPosY
 {
     // Maths
     CGFloat cloudGateGapHeight = VERTICAL_GAP_SIZE;
@@ -558,11 +622,23 @@ static bool wasted = NO;
     float availableSpace = HEIGHT(self) - HEIGHT(floor);
     float maxVariance =
         availableSpace - (2*OBSTACLE_MIN_HEIGHT) - cloudGateGapHeight;
-    float variance = [Math randomFloatBetween:0 and:maxVariance];
-    
+
     // Bottom pipe placement
     float minBottomPosY = HEIGHT(floor) + OBSTACLE_MIN_HEIGHT - HEIGHT(self);
-    float bottomPosY = minBottomPosY + variance;
+    float maxBottomPosY = minBottomPosY + maxVariance;
+
+    float bottomPosY;
+    if (isnan(previousBottomPosY)) {
+        float variance = [Math randomFloatBetween:0 and:maxVariance];
+        bottomPosY = minBottomPosY + variance;
+    } else {
+        // Stage 2 offset double gate fairness fallback: clamp the paired
+        // gate's offset within the exact same legal placement band normal
+        // gates already use, so it can never create an unfair/impossible gap.
+        float desiredBottomPosY = previousBottomPosY + STAGE2_DOUBLE_GATE_VERTICAL_OFFSET;
+        bottomPosY = MIN(MAX(desiredBottomPosY, minBottomPosY), maxBottomPosY);
+    }
+
     bottomPipe.position = CGPointMake(xPos,bottomPosY);
     bottomPipe.physicsBody = [SKPhysicsBody bodyWithEdgeLoopFromRect:CGRectMake(6.5, 522.0, 76.5, 43.0)];
     bottomPipe.physicsBody.categoryBitMask = blockBitMask;

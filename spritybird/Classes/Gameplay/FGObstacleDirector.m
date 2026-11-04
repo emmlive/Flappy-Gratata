@@ -53,4 +53,9 @@
     return FGLegacyClassicCloudGateGapHeight;
 }
 
+- (BOOL)allowsStage2OffsetDoubleGate
+{
+    return self.mode == FGObstacleModeStage && self.currentStage == 2;
+}
+
 @end
