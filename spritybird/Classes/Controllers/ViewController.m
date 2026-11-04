@@ -11,6 +11,7 @@
 #import "Scene.h"
 #import "Score.h"
 #import "BirdHangarViewController.h"
+#import "../Models/BirdCatalog.h"
 #import "../../Challenge/FGChallengeCoordinator.h"
 #import "../../Challenge/FGChallengeLobbyViewController.h"
 #import "../../Challenge/FGChallengeRecordStore.h"
@@ -35,6 +36,8 @@
 
 @property (strong, nonatomic) UIView *stageCompleteView;
 @property (strong, nonatomic) UILabel *stageCompleteScoreLabel;
+@property (strong, nonatomic) UILabel *unlockTitleLabel;
+@property (strong, nonatomic) UILabel *unlockBirdNameLabel;
 @property (strong, nonatomic) UIButton *btnStageComplete;
 
 @property (strong, nonatomic) UIButton *btnStageExit;
@@ -595,6 +598,34 @@
                          weight:UIFontWeightBold];
     [self.stageCompleteView addSubview:self.stageCompleteScoreLabel];
 
+    self.unlockTitleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.unlockTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.unlockTitleLabel.text = @"NEW GRATATA UNLOCKED";
+    self.unlockTitleLabel.textAlignment = NSTextAlignmentCenter;
+    self.unlockTitleLabel.textColor =
+        [UIColor colorWithRed:0.30
+                        green:0.95
+                         blue:0.72
+                        alpha:1.0];
+    self.unlockTitleLabel.font =
+        [UIFont systemFontOfSize:11.0
+                         weight:UIFontWeightSemibold];
+    self.unlockTitleLabel.adjustsFontSizeToFitWidth = YES;
+    self.unlockTitleLabel.minimumScaleFactor = 0.8;
+    self.unlockTitleLabel.hidden = YES;
+    [self.stageCompleteView addSubview:self.unlockTitleLabel];
+
+    self.unlockBirdNameLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.unlockBirdNameLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.unlockBirdNameLabel.textAlignment = NSTextAlignmentCenter;
+    self.unlockBirdNameLabel.textColor = [UIColor whiteColor];
+    self.unlockBirdNameLabel.font =
+        [UIFont boldSystemFontOfSize:16.0];
+    self.unlockBirdNameLabel.adjustsFontSizeToFitWidth = YES;
+    self.unlockBirdNameLabel.minimumScaleFactor = 0.7;
+    self.unlockBirdNameLabel.hidden = YES;
+    [self.stageCompleteView addSubview:self.unlockBirdNameLabel];
+
     self.btnStageComplete = [UIButton buttonWithType:UIButtonTypeSystem];
     self.btnStageComplete.translatesAutoresizingMaskIntoConstraints = NO;
     self.btnStageComplete.accessibilityLabel = @"Continue";
@@ -821,7 +852,7 @@
         [self.stageCompleteView.centerYAnchor constraintEqualToAnchor:safeArea.centerYAnchor],
         [self.stageCompleteView.widthAnchor constraintEqualToConstant:300.0],
         [self.stageCompleteView.widthAnchor constraintLessThanOrEqualToAnchor:safeArea.widthAnchor],
-        [self.stageCompleteView.heightAnchor constraintEqualToConstant:270.0],
+        [self.stageCompleteView.heightAnchor constraintEqualToConstant:286.0],
 
         [stageCompleteTitle.topAnchor constraintEqualToAnchor:self.stageCompleteView.topAnchor
                                                       constant:26.0],
@@ -842,8 +873,24 @@
         [self.stageCompleteScoreLabel.centerXAnchor constraintEqualToAnchor:self.stageCompleteView.centerXAnchor],
         [self.stageCompleteScoreLabel.heightAnchor constraintEqualToConstant:44.0],
 
-        [self.btnStageComplete.topAnchor constraintEqualToAnchor:self.stageCompleteScoreLabel.bottomAnchor
-                                                         constant:22.0],
+        [self.unlockTitleLabel.topAnchor constraintEqualToAnchor:self.stageCompleteScoreLabel.bottomAnchor
+                                                         constant:14.0],
+        [self.unlockTitleLabel.leadingAnchor constraintEqualToAnchor:self.stageCompleteView.leadingAnchor
+                                                             constant:20.0],
+        [self.unlockTitleLabel.trailingAnchor constraintEqualToAnchor:self.stageCompleteView.trailingAnchor
+                                                              constant:-20.0],
+        [self.unlockTitleLabel.heightAnchor constraintEqualToConstant:16.0],
+
+        [self.unlockBirdNameLabel.topAnchor constraintEqualToAnchor:self.unlockTitleLabel.bottomAnchor
+                                                            constant:2.0],
+        [self.unlockBirdNameLabel.leadingAnchor constraintEqualToAnchor:self.stageCompleteView.leadingAnchor
+                                                                constant:20.0],
+        [self.unlockBirdNameLabel.trailingAnchor constraintEqualToAnchor:self.stageCompleteView.trailingAnchor
+                                                                 constant:-20.0],
+        [self.unlockBirdNameLabel.heightAnchor constraintEqualToConstant:20.0],
+
+        [self.btnStageComplete.topAnchor constraintEqualToAnchor:self.unlockBirdNameLabel.bottomAnchor
+                                                         constant:18.0],
         [self.btnStageComplete.centerXAnchor constraintEqualToAnchor:self.stageCompleteView.centerXAnchor],
         [self.btnStageComplete.widthAnchor constraintEqualToConstant:216.0],
         [self.btnStageComplete.heightAnchor constraintEqualToConstant:52.0],
@@ -950,6 +997,8 @@
         self.gameOverIntroView.userInteractionEnabled = YES;
         self.stageCompleteView.hidden = YES;
         self.stageCompleteView.userInteractionEnabled = YES;
+        self.unlockTitleLabel.hidden = YES;
+        self.unlockBirdNameLabel.hidden = YES;
 
     }];
     
@@ -1051,6 +1100,33 @@
     self.stageCompleteView.transform = CGAffineTransformMakeScale(.9, .9);
 
     self.stageCompleteScoreLabel.text = F(@"%li", (long)finalScore);
+
+    // Recompute Hangar unlock reward feedback fresh for every completion, so
+    // no stale unlock name from a previous run can remain.
+    self.unlockTitleLabel.hidden = YES;
+    self.unlockBirdNameLabel.hidden = YES;
+
+    NSInteger currentCount = [Score stageModeCompletionCount];
+    NSInteger previousCount = MAX(0, currentCount - 1);
+    NSArray<NSDictionary *> *newlyUnlockedBirds =
+        [BirdCatalog birdsUnlockedBetweenStageCompletionCount:previousCount
+                                                  currentCount:currentCount];
+
+    if (newlyUnlockedBirds.count > 0) {
+        NSMutableArray<NSString *> *birdNames = [NSMutableArray array];
+        for (NSDictionary *bird in newlyUnlockedBirds) {
+            NSString *birdName = bird[@"name"];
+            if ([birdName isKindOfClass:[NSString class]]) {
+                [birdNames addObject:[birdName uppercaseString]];
+            }
+        }
+
+        if (birdNames.count > 0) {
+            self.unlockTitleLabel.hidden = NO;
+            self.unlockBirdNameLabel.hidden = NO;
+            self.unlockBirdNameLabel.text = [birdNames componentsJoinedByString:@" • "];
+        }
+    }
 
     [UIView animateWithDuration:.5 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
 

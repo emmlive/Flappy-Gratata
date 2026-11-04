@@ -178,6 +178,35 @@ NSString * const FGBirdSelectedDefaultsKey = @"FGSelectedBirdID";
     return completionCount >= requiredStageCompletionCount;
 }
 
++ (NSArray<NSDictionary *> *)birdsUnlockedBetweenStageCompletionCount:(NSInteger)previousCount
+                                                     currentCount:(NSInteger)currentCount
+{
+    NSInteger safePreviousCount = MAX(previousCount, (NSInteger)0);
+    NSInteger safeCurrentCount = MAX(currentCount, (NSInteger)0);
+
+    NSMutableArray<NSDictionary *> *newlyUnlockedBirds = [NSMutableArray array];
+
+    if (safeCurrentCount <= safePreviousCount) {
+        return [newlyUnlockedBirds copy];
+    }
+
+    for (NSDictionary *bird in [self allBirds]) {
+        if ([bird[@"defaultUnlocked"] boolValue]) {
+            continue;
+        }
+
+        NSInteger requiredStageCompletionCount =
+            [bird[@"requiredStageCompletionCount"] integerValue];
+
+        if (requiredStageCompletionCount > safePreviousCount &&
+            requiredStageCompletionCount <= safeCurrentCount) {
+            [newlyUnlockedBirds addObject:bird];
+        }
+    }
+
+    return [newlyUnlockedBirds copy];
+}
+
 + (NSString *)selectedBirdID
 {
     id storedValue =
