@@ -209,6 +209,25 @@ class FGStage2OffsetDoubleGateSourceContractTests(unittest.TestCase):
         self.assertIn("- (void)activateSkyBrake", self.scene_m)
         self.assertIn("- (void)deactivateSkyBrake", self.scene_m)
 
+    # 26. Tuned human-passability constants (6H1): pair spacing 90.0,
+    # vertical offset 18.0, cadence period unchanged at 3.
+    def test_tuned_pair_spacing_and_offset(self):
+        self.assertRegex(
+            self.scene_m,
+            r"#define\s+STAGE2_DOUBLE_GATE_PAIR_SPACING\s+90\.0\b",
+            "Pair spacing must be tuned to 90.0 for human passability.",
+        )
+        self.assertRegex(
+            self.scene_m,
+            r"#define\s+STAGE2_DOUBLE_GATE_VERTICAL_OFFSET\s+18\.0\b",
+            "Vertical offset must be tuned to 18.0 for human passability.",
+        )
+        self.assertRegex(
+            self.scene_m,
+            r"#define\s+STAGE2_DOUBLE_GATE_CADENCE_PERIOD\s+3\b",
+            "Cadence period must remain unchanged at 3.",
+        )
+
     # 25. Stage completion thresholds untouched.
     def test_stage_thresholds_untouched(self):
         self.assertRegex(self.scene_m, r"#define\s+FG_STAGE_PROGRESSION_FIRST_THRESHOLD\s+5\b")

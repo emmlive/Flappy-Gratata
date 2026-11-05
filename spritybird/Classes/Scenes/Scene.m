@@ -30,8 +30,8 @@
 
 // Stage 2 offset double gate (Stage 2 only; Classic/Stage1/Stage3 unaffected)
 #define STAGE2_DOUBLE_GATE_CADENCE_PERIOD 3
-#define STAGE2_DOUBLE_GATE_PAIR_SPACING 70.0
-#define STAGE2_DOUBLE_GATE_VERTICAL_OFFSET 26.0
+#define STAGE2_DOUBLE_GATE_PAIR_SPACING 90.0
+#define STAGE2_DOUBLE_GATE_VERTICAL_OFFSET 18.0
 
 // Stage 3 moving gate (Stage 3 only; Classic/Stage1/Stage2 unaffected)
 #define STAGE3_MOVING_GATE_CADENCE_PERIOD 2

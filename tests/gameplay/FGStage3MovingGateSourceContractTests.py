@@ -250,7 +250,8 @@ class FGStage3MovingGateSourceContractTests(unittest.TestCase):
             r"if\s*\(\s*self\.currentStage\s*<=\s*1\s*\)\s*\{\s*\n\s*return\s+FGStageCloudGateNarrowGapHeight;",
         )
 
-    # 24. Stage 2 double-gate path unchanged.
+    # 24. Stage 2 double-gate path unchanged (values per the 6H1 human-
+    # passability tuning: pair spacing 90.0, vertical offset 18.0).
     def test_stage2_double_gate_unchanged(self):
         self.assertRegex(
             self.scene_m,
@@ -258,11 +259,11 @@ class FGStage3MovingGateSourceContractTests(unittest.TestCase):
         )
         self.assertRegex(
             self.scene_m,
-            r"#define\s+STAGE2_DOUBLE_GATE_PAIR_SPACING\s+70\.0\b",
+            r"#define\s+STAGE2_DOUBLE_GATE_PAIR_SPACING\s+90\.0\b",
         )
         self.assertRegex(
             self.scene_m,
-            r"#define\s+STAGE2_DOUBLE_GATE_VERTICAL_OFFSET\s+26\.0\b",
+            r"#define\s+STAGE2_DOUBLE_GATE_VERTICAL_OFFSET\s+18\.0\b",
         )
         self.assertIn(
             "verticalOffsetFromPreviousBottomY:mostRightObstacle.bottomPipe.position.y",
